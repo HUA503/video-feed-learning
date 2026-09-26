@@ -38,7 +38,13 @@ func main() {
 	userRepo := repository.NewUserRepository(db)
 	userService := service.NewUserService(userRepo, []byte(jwtSecret))
 	userHandler := handler.NewUserHandler(userService)
-	engine := router.New(userHandler, []byte(jwtSecret))
+
+	//创建并连接视频各层\
+	videoRepo := repository.NewVideoRepository(db)
+	videoService := service.NewVideoService(videoRepo)
+	videoHandler := handler.NewVideoHandler(videoService)
+
+	engine := router.New(userHandler, videoHandler, []byte(jwtSecret))
 	if err := engine.Run(":8080"); err != nil {
 		log.Fatal(err)
 	}

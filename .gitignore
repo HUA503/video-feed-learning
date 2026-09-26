@@ -1,0 +1,20 @@
+# Go build artifacts
+*.exe
+*.test
+*.out
+/bin/
+/dist/
+
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+
+# IDE and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

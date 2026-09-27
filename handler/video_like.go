@@ -72,3 +72,47 @@ func (h *VideoLikeHandler) Like(c *gin.Context) {
 		"message": "点赞成功",
 	})
 }
+
+// 取消点赞
+func (h *VideoLikeHandler) Unlike(c *gin.Context) {
+	videoIDValue, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "视频 ID 格式不正确",
+		})
+		return
+	}
+
+	userIDValue, exists := c.Get(middleware.UserIDKey)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "未获取到登录用户",
+		})
+		return
+	}
+
+	userID, ok := userIDValue.(uint)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "登录用户信息无效",
+		})
+		return
+	}
+
+	if err := h.likeService.Unlike(userID, uint(videoIDValue)); err != nil {
+		if errors.Is(err, service.ErrVideoNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "视频不存在",
+			})
+			return
+		}
+
+		log.Printf("取消视频点赞失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "取消点赞失败",
+		})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}

@@ -51,3 +51,16 @@ func (s *VideoLikeService) Like(userID, videoID uint) error {
 	//保存点赞记录
 	return s.likeRepo.Create(like)
 }
+
+// 取消点赞
+func (s *VideoLikeService) Unlike(userID, videoID uint) error {
+	_, err := s.videoRepo.FindByID(videoID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrVideoNotFound
+		}
+		return err
+	}
+
+	return s.likeRepo.DeleteByUserAndVideo(userID, videoID)
+}

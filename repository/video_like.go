@@ -32,3 +32,10 @@ func (r *VideoLikeRepository) Exists(userID, videoID uint) (bool, error) {
 
 	return count > 0, nil
 }
+
+// 取消点赞
+func (r *VideoLikeRepository) DeleteByUserAndVideo(userID, videoID uint) error {
+	return r.db.
+		Where("user_id = ? AND video_id = ?", userID, videoID).
+		Delete(&model.VideoLike{}).Error
+}

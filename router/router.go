@@ -35,5 +35,11 @@ func New(
 		middleware.AuthMiddleware(jwtSecret),
 		videoLikeHandler.Like,
 	)
+
+	engine.DELETE(
+		"/api/v1/videos/:id/like",
+		middleware.AuthMiddleware(jwtSecret),
+		videoLikeHandler.Unlike,
+	)
 	return engine
 }

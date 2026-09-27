@@ -10,6 +10,10 @@ import (
 
 var ErrVideoNotFound = errors.New("视频不存在")
 
+var ErrInvalidPagination = errors.New("分页参数不合法")
+
+const maxVideoPageSize = 50
+
 // 处理视频业务
 type VideoService struct {
 	videoRepo *repository.VideoRepository
@@ -52,4 +56,16 @@ func (s *VideoService) GetByID(id uint) (*model.Video, error) {
 	}
 
 	return video, nil
+}
+
+// 分页规则，调用 Repository 获取 Feed 列表
+func (s *VideoService) List(
+	page int,
+	pageSize int,
+) ([]model.Video, int64, error) {
+	if page < 1 || pageSize < 1 || pageSize > maxVideoPageSize {
+		return nil, 0, ErrInvalidPagination
+	}
+
+	return s.videoRepo.List(page, pageSize)
 }

@@ -19,10 +19,13 @@ func New(userHandler *handler.UserHandler,
 		middleware.AuthMiddleware(jwtSecret),
 		userHandler.Me,
 	)
+
+	engine.GET("/api/v1/videos/:id", videoHandler.GetByID)
 	engine.POST(
 		"/api/v1/videos",
 		middleware.AuthMiddleware(jwtSecret),
 		videoHandler.Create,
 	)
+	engine.GET("/api/v1/videos", videoHandler.List)
 	return engine
 }

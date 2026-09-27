@@ -30,3 +30,29 @@ func (r *VideoRepository) FindByID(id uint) (*model.Video, error) {
 
 	return &video, nil
 }
+
+// 按时间排序的视频 Feed 列表
+func (r *VideoRepository) List(
+	page int,
+	pageSize int,
+) ([]model.Video, int64, error) {
+	var videos []model.Video
+	var total int64
+
+	if err := r.db.Model(&model.Video{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * pageSize
+
+	if err := r.db.
+		Order("created_at DESC").
+		Order("id DESC").
+		Limit(pageSize). //限制每页条数
+		Offset(offset).  //跳过前面已有的记录
+		Find(&videos).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return videos, total, nil //视频列表、视频总数、错误
+}

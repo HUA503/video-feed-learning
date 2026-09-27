@@ -97,3 +97,45 @@ func (h *VideoHandler) GetByID(c *gin.Context) {
 
 	c.JSON(http.StatusOK, video)
 }
+
+// 接收分页参数并把视频列表和分页信息返回给客户端
+func (h *VideoHandler) List(c *gin.Context) {
+	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "页码格式不正确",
+		})
+		return
+	}
+
+	pageSize, err := strconv.Atoi(c.DefaultQuery("page_size", "10"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "每页数量格式不正确",
+		})
+		return
+	}
+
+	videos, total, err := h.videoService.List(page, pageSize)
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidPagination) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "分页参数不合法",
+			})
+			return
+		}
+
+		log.Printf("查询视频列表失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "查询视频列表失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"items":     videos,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	})
+}

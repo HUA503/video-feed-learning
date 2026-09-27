@@ -11,6 +11,7 @@ func New(
 	videoHandler *handler.VideoHandler,
 	videoLikeHandler *handler.VideoLikeHandler,
 	jwtSecret []byte,
+	commentHandler *handler.CommentHandler,
 ) *gin.Engine {
 	engine := gin.Default()
 	engine.GET("/healthz", handler.Health)
@@ -40,6 +41,11 @@ func New(
 		"/api/v1/videos/:id/like",
 		middleware.AuthMiddleware(jwtSecret),
 		videoLikeHandler.Unlike,
+	)
+	engine.POST(
+		"/api/v1/videos/:id/comments",
+		middleware.AuthMiddleware(jwtSecret),
+		commentHandler.Create,
 	)
 	return engine
 }

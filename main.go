@@ -55,11 +55,17 @@ func main() {
 	videoLikeService := service.NewVideoLikeService(videoLikeRepo, videoRepo)
 	videoLikeHandler := handler.NewVideoLikeHandler(videoLikeService)
 
+	//评论
+	commentRepo := repository.NewCommentRepository(db)
+	commentService := service.NewCommentService(commentRepo, videoRepo)
+	commentHandler := handler.NewCommentHandler(commentService)
+
 	engine := router.New(
 		userHandler,
 		videoHandler,
 		videoLikeHandler,
 		[]byte(jwtSecret),
+		commentHandler,
 	)
 
 	if err := engine.Run(":8080"); err != nil {

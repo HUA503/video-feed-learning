@@ -6,8 +6,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func New(userHandler *handler.UserHandler,
+func New(
+	userHandler *handler.UserHandler,
 	videoHandler *handler.VideoHandler,
+	videoLikeHandler *handler.VideoLikeHandler,
 	jwtSecret []byte,
 ) *gin.Engine {
 	engine := gin.Default()
@@ -27,5 +29,11 @@ func New(userHandler *handler.UserHandler,
 		videoHandler.Create,
 	)
 	engine.GET("/api/v1/videos", videoHandler.List)
+
+	engine.POST(
+		"/api/v1/videos/:id/like",
+		middleware.AuthMiddleware(jwtSecret),
+		videoLikeHandler.Like,
+	)
 	return engine
 }

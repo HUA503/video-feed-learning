@@ -30,7 +30,12 @@ func main() {
 	defer sqlDB.Close()
 
 	log.Println("MySQL 连接成功")
-	if err := db.AutoMigrate(&model.User{}, &model.Video{}); err != nil {
+
+	if err := db.AutoMigrate(
+		&model.User{},
+		&model.Video{},
+		&model.VideoLike{},
+	); err != nil {
 		log.Fatalf("数据库表迁移失败: %v", err)
 	}
 	log.Println("用户表结构已就绪")
@@ -44,7 +49,18 @@ func main() {
 	videoService := service.NewVideoService(videoRepo)
 	videoHandler := handler.NewVideoHandler(videoService)
 
-	engine := router.New(userHandler, videoHandler, []byte(jwtSecret))
+	//点赞
+	videoLikeRepo := repository.NewVideoLikeRepository(db)
+	videoLikeService := service.NewVideoLikeService(videoLikeRepo, videoRepo)
+	videoLikeHandler := handler.NewVideoLikeHandler(videoLikeService)
+
+	engine := router.New(
+		userHandler,
+		videoHandler,
+		videoLikeHandler,
+		[]byte(jwtSecret),
+	)
+
 	if err := engine.Run(":8080"); err != nil {
 		log.Fatal(err)
 	}

@@ -35,6 +35,7 @@ func main() {
 		&model.User{},
 		&model.Video{},
 		&model.VideoLike{},
+		&model.Comment{},
 	); err != nil {
 		log.Fatalf("数据库表迁移失败: %v", err)
 	}

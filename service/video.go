@@ -1,9 +1,14 @@
 package service
 
 import (
+	"errors"
+
 	"example.com/video-feed/model"
 	"example.com/video-feed/repository"
+	"gorm.io/gorm"
 )
+
+var ErrVideoNotFound = errors.New("视频不存在")
 
 // 处理视频业务
 type VideoService struct {
@@ -30,6 +35,19 @@ func (s *VideoService) Create(
 	}
 
 	if err := s.videoRepo.Create(video); err != nil {
+		return nil, err
+	}
+
+	return video, nil
+}
+
+// /根据视频 ID 获取视频详情，并把“视频不存在”转换成项目自己的业务错误
+func (s *VideoService) GetByID(id uint) (*model.Video, error) {
+	video, err := s.videoRepo.FindByID(id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrVideoNotFound
+		}
 		return nil, err
 	}
 

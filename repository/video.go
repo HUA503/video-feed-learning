@@ -19,3 +19,14 @@ func NewVideoRepository(db *gorm.DB) *VideoRepository {
 func (r *VideoRepository) Create(video *model.Video) error {
 	return r.db.Create(video).Error
 }
+
+// 视频详情查询
+func (r *VideoRepository) FindByID(id uint) (*model.Video, error) {
+	var video model.Video
+
+	if err := r.db.First(&video, id).Error; err != nil {
+		return nil, err
+	}
+
+	return &video, nil
+}

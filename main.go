@@ -39,7 +39,7 @@ func main() {
 	userService := service.NewUserService(userRepo, []byte(jwtSecret))
 	userHandler := handler.NewUserHandler(userService)
 
-	//创建并连接视频各层\
+	//创建并连接视频各层//
 	videoRepo := repository.NewVideoRepository(db)
 	videoService := service.NewVideoService(videoRepo)
 	videoHandler := handler.NewVideoHandler(videoService)

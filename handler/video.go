@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"errors"
 	"log"
 	"net/http"
+	"strconv"
 
 	"example.com/video-feed/middleware"
 	"example.com/video-feed/service"
@@ -65,4 +67,33 @@ func (h *VideoHandler) Create(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, video)
+}
+
+// 从 URL 里取出视频 ID，调用 Service 查数据库，并根据结果返回对应的 HTTP 状态码
+func (h *VideoHandler) GetByID(c *gin.Context) {
+	idValue, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "视频 ID 格式不正确",
+		})
+		return
+	}
+
+	video, err := h.videoService.GetByID(uint(idValue))
+	if err != nil {
+		if errors.Is(err, service.ErrVideoNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "视频不存在",
+			})
+			return
+		}
+
+		log.Printf("查询视频失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "查询视频失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, video)
 }

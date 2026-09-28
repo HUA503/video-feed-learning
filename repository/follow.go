@@ -48,3 +48,16 @@ func (r *FollowRepository) Delete(followerID, followeeID uint) error {
 		Delete(&model.Follow{}).
 		Error
 }
+
+// 关注 Feed，查看该用户关注了谁
+func (r *FollowRepository) ListFolloweeIDs(followerID uint) ([]uint, error) {
+	followeeIDs := make([]uint, 0)
+
+	err := r.db.
+		Model(&model.Follow{}).
+		Where("follower_id = ?", followerID).
+		Pluck("followee_id", &followeeIDs). //只筛选当前用户发起的关注关系
+		Error
+
+	return followeeIDs, err
+}

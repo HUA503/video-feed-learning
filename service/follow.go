@@ -73,3 +73,8 @@ func (s *FollowService) Unfollow(followerID, followeeID uint) error {
 
 	return s.followRepo.Delete(followerID, followeeID)
 }
+
+// 获取关注列表
+func (s *FollowService) ListFolloweeIDs(followerID uint) ([]uint, error) {
+	return s.followRepo.ListFolloweeIDs(followerID)
+}

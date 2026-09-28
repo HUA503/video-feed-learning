@@ -70,5 +70,11 @@ func New(
 		followHandler.Follow,
 	)
 
+	//取消关注
+	engine.DELETE(
+		"/api/v1/users/:id/follow",
+		middleware.AuthMiddleware(jwtSecret),
+		followHandler.Unfollow,
+	)
 	return engine
 }

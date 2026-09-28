@@ -12,6 +12,7 @@ func New(
 	videoLikeHandler *handler.VideoLikeHandler,
 	jwtSecret []byte,
 	commentHandler *handler.CommentHandler,
+	followHandler *handler.FollowHandler,
 ) *gin.Engine {
 	engine := gin.Default()
 	engine.GET("/healthz", handler.Health)
@@ -61,5 +62,13 @@ func New(
 		middleware.AuthMiddleware(jwtSecret),
 		commentHandler.Delete,
 	)
+
+	//关注
+	engine.POST(
+		"/api/v1/users/:id/follow",
+		middleware.AuthMiddleware(jwtSecret),
+		followHandler.Follow,
+	)
+
 	return engine
 }

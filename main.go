@@ -36,6 +36,7 @@ func main() {
 		&model.Video{},
 		&model.VideoLike{},
 		&model.Comment{},
+		&model.Follow{},
 	); err != nil {
 		log.Fatalf("数据库表迁移失败: %v", err)
 	}
@@ -60,12 +61,18 @@ func main() {
 	commentService := service.NewCommentService(commentRepo, videoRepo)
 	commentHandler := handler.NewCommentHandler(commentService)
 
+	//关注（关注塔菲谢谢喵）
+	followRepo := repository.NewFollowRepository(db)
+	followService := service.NewFollowService(followRepo, userRepo)
+	followHandler := handler.NewFollowHandler(followService)
+
 	engine := router.New(
 		userHandler,
 		videoHandler,
 		videoLikeHandler,
 		[]byte(jwtSecret),
 		commentHandler,
+		followHandler,
 	)
 
 	if err := engine.Run(":8080"); err != nil {

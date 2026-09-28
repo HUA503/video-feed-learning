@@ -30,22 +30,36 @@ func New(
 		videoHandler.Create,
 	)
 	engine.GET("/api/v1/videos", videoHandler.List)
-
+	//点赞
 	engine.POST(
 		"/api/v1/videos/:id/like",
 		middleware.AuthMiddleware(jwtSecret),
 		videoLikeHandler.Like,
 	)
-
+	//取消点赞
 	engine.DELETE(
 		"/api/v1/videos/:id/like",
 		middleware.AuthMiddleware(jwtSecret),
 		videoLikeHandler.Unlike,
 	)
+	//创见评论
 	engine.POST(
 		"/api/v1/videos/:id/comments",
 		middleware.AuthMiddleware(jwtSecret),
 		commentHandler.Create,
+	)
+
+	//查询评论
+	engine.GET(
+		"/api/v1/videos/:id/comments",
+		commentHandler.List,
+	)
+
+	//删除评论
+	engine.DELETE(
+		"/api/v1/comments/:id",
+		middleware.AuthMiddleware(jwtSecret),
+		commentHandler.Delete,
 	)
 	return engine
 }

@@ -60,3 +60,38 @@ func (h *FollowHandler) Follow(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{"message": "关注成功"})
 }
+
+// 取消关注
+func (h *FollowHandler) Unfollow(c *gin.Context) {
+	followeeIDValue, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || followeeIDValue == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "用户 ID 格式不正确"})
+		return
+	}
+
+	followerIDValue, exists := c.Get(middleware.UserIDKey)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "未获取到登录用户"})
+		return
+	}
+
+	followerID, ok := followerIDValue.(uint)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "登录用户信息无效"})
+		return
+	}
+
+	err = h.followService.Unfollow(followerID, uint(followeeIDValue))
+	if err != nil {
+		if errors.Is(err, service.ErrNotFollowing) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "尚未关注该用户"})
+			return
+		}
+
+		log.Printf("取消关注失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "取消关注失败"})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}

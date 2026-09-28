@@ -8,6 +8,8 @@ import (
 	"gorm.io/gorm"
 )
 
+var ErrNotFollowing = errors.New("尚未关注该用户")
+
 var (
 	ErrCannotFollowSelf = errors.New("不能关注自己")
 	ErrFolloweeNotFound = errors.New("被关注的用户不存在")
@@ -57,4 +59,17 @@ func (s *FollowService) Follow(followerID, followeeID uint) error {
 	}
 
 	return s.followRepo.Create(follow)
+}
+
+// 取消关注的业务
+func (s *FollowService) Unfollow(followerID, followeeID uint) error {
+	exists, err := s.followRepo.Exists(followerID, followeeID)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return ErrNotFollowing
+	}
+
+	return s.followRepo.Delete(followerID, followeeID)
 }

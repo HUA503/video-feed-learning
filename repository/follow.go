@@ -40,3 +40,11 @@ func (r *FollowRepository) Exists(followerID, followeeID uint) (bool, error) {
 
 	return count > 0, err
 }
+
+// 取消关注
+func (r *FollowRepository) Delete(followerID, followeeID uint) error {
+	return r.db.
+		Where("follower_id = ? AND followee_id = ?", followerID, followeeID).
+		Delete(&model.Follow{}).
+		Error
+}

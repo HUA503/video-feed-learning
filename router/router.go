@@ -14,6 +14,7 @@ func New(
 	commentHandler *handler.CommentHandler,
 	followHandler *handler.FollowHandler,
 	feedHandler *handler.FeedHandler,
+	hotFeedHandler *handler.HotFeedHandler,
 ) *gin.Engine {
 	engine := gin.Default()
 	engine.GET("/healthz", handler.Health)
@@ -85,5 +86,10 @@ func New(
 		feedHandler.Following,
 	)
 
+	//热门视频
+	engine.GET(
+		"/api/v1/feed/hot",
+		hotFeedHandler.List,
+	)
 	return engine
 }

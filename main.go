@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"example.com/video-feed/cache"
 	"example.com/video-feed/database"
 	"example.com/video-feed/handler"
 	"example.com/video-feed/model"
@@ -19,6 +20,7 @@ func main() {
 		log.Fatal("JWT_SECRET 环境变量未设置")
 	}
 
+	//mysql初始化
 	db, err := database.ConnectMySQL()
 	if err != nil {
 		log.Fatalf("连接 MySQL 失败: %v", err)
@@ -30,6 +32,15 @@ func main() {
 	defer sqlDB.Close()
 
 	log.Println("MySQL 连接成功")
+
+	//redis初始化
+	redisClient, err := cache.ConnectRedis()
+	if err != nil {
+		log.Fatalf("连接 Redis 失败: %v", err)
+	}
+	defer redisClient.Close()
+
+	log.Println("Redis 连接成功")
 
 	if err := db.AutoMigrate(
 		&model.User{},
@@ -70,6 +81,11 @@ func main() {
 	feedService := service.NewFeedService(followService, videoRepo)
 	feedHandler := handler.NewFeedHandler(feedService)
 
+	//热门视频
+	hotVideoRepo := repository.NewHotVideoRepository(redisClient)
+	hotFeedService := service.NewHotFeedService(hotVideoRepo, videoRepo)
+	hotFeedHandler := handler.NewHotFeedHandler(hotFeedService)
+
 	engine := router.New(
 		userHandler,
 		videoHandler,
@@ -78,6 +94,7 @@ func main() {
 		commentHandler,
 		followHandler,
 		feedHandler,
+		hotFeedHandler,
 	)
 
 	if err := engine.Run(":8080"); err != nil {

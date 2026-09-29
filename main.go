@@ -8,12 +8,27 @@ import (
 	"example.com/video-feed/database"
 	"example.com/video-feed/handler"
 	"example.com/video-feed/model"
+	"example.com/video-feed/queue"
 	"example.com/video-feed/repository"
 	"example.com/video-feed/router"
 	"example.com/video-feed/service"
 )
 
 func main() {
+	//连接 RabbitMQ
+	rabbitMQURL := os.Getenv("RABBITMQ_URL")
+	if rabbitMQURL == "" {
+		log.Fatal("RABBITMQ_URL 环境变量未设置")
+	}
+
+	rabbitConn, err := queue.ConnectRabbitMQ(rabbitMQURL)
+	if err != nil {
+		log.Fatalf("连接 RabbitMQ 失败: %v", err)
+	}
+	defer rabbitConn.Close()
+
+	log.Println("RabbitMQ 连接成功")
+
 	//读取密钥并检查
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {

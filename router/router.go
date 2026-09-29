@@ -13,6 +13,7 @@ func New(
 	jwtSecret []byte,
 	commentHandler *handler.CommentHandler,
 	followHandler *handler.FollowHandler,
+	feedHandler *handler.FeedHandler,
 ) *gin.Engine {
 	engine := gin.Default()
 	engine.GET("/healthz", handler.Health)
@@ -76,5 +77,13 @@ func New(
 		middleware.AuthMiddleware(jwtSecret),
 		followHandler.Unfollow,
 	)
+
+	//注册关注feed
+	engine.GET(
+		"/api/v1/feed/following",
+		middleware.AuthMiddleware(jwtSecret),
+		feedHandler.Following,
+	)
+
 	return engine
 }

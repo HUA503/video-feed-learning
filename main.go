@@ -66,6 +66,10 @@ func main() {
 	followService := service.NewFollowService(followRepo, userRepo)
 	followHandler := handler.NewFollowHandler(followService)
 
+	//feed依赖
+	feedService := service.NewFeedService(followService, videoRepo)
+	feedHandler := handler.NewFeedHandler(feedService)
+
 	engine := router.New(
 		userHandler,
 		videoHandler,
@@ -73,6 +77,7 @@ func main() {
 		[]byte(jwtSecret),
 		commentHandler,
 		followHandler,
+		feedHandler,
 	)
 
 	if err := engine.Run(":8080"); err != nil {

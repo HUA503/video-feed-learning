@@ -34,8 +34,17 @@ func (r *VideoLikeRepository) Exists(userID, videoID uint) (bool, error) {
 }
 
 // 取消点赞
-func (r *VideoLikeRepository) DeleteByUserAndVideo(userID, videoID uint) error {
-	return r.db.
+func (r *VideoLikeRepository) DeleteByUserAndVideo(
+	userID, videoID uint,
+) (bool, error) {
+	result := r.db.
 		Where("user_id = ? AND video_id = ?", userID, videoID).
-		Delete(&model.VideoLike{}).Error
+		Delete(&model.VideoLike{})
+
+	if result.Error != nil {
+		return false, result.Error
+	}
+
+	//实际删除了多少条记录
+	return result.RowsAffected > 0, nil
 }

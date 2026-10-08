@@ -6,6 +6,7 @@ import (
 
 	"example.com/video-feed/model"
 	"example.com/video-feed/repository"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"gorm.io/gorm"
 )
 
@@ -16,17 +17,20 @@ var (
 )
 
 type CommentService struct {
-	commentRepo *repository.CommentRepository
-	videoRepo   *repository.VideoRepository
+	commentRepo     *repository.CommentRepository
+	videoRepo       *repository.VideoRepository
+	hotScoreChannel *amqp.Channel
 }
 
 func NewCommentService(
 	commentRepo *repository.CommentRepository,
 	videoRepo *repository.VideoRepository,
+	hotScoreChannel *amqp.Channel,
 ) *CommentService {
 	return &CommentService{
-		commentRepo: commentRepo,
-		videoRepo:   videoRepo,
+		commentRepo:     commentRepo,
+		videoRepo:       videoRepo,
+		hotScoreChannel: hotScoreChannel,
 	}
 }
 

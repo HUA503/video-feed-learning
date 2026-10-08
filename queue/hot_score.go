@@ -13,6 +13,7 @@ type HotScoreEvent struct {
 }
 
 func PublishHotScore(channel *amqp.Channel, event HotScoreEvent) error {
+	//将 JSON 解析
 	body, err := json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("编码热度消息失败: %w", err)
@@ -35,4 +36,15 @@ func PublishHotScore(channel *amqp.Channel, event HotScoreEvent) error {
 	}
 
 	return nil
+}
+
+// 消息解析函数，让后台程序能读懂队列中的 JSON
+func DecodeHotScore(body []byte) (HotScoreEvent, error) {
+	var event HotScoreEvent
+	//把 JSON 解析进结构体
+	if err := json.Unmarshal(body, &event); err != nil {
+		return HotScoreEvent{}, fmt.Errorf("解析热度消息失败: %w", err)
+	}
+
+	return event, nil
 }

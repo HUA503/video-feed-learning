@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
+	"time"
 
 	"example.com/video-feed/cache"
 	"example.com/video-feed/database"
@@ -28,6 +30,15 @@ func main() {
 	defer rabbitConn.Close()
 
 	log.Println("RabbitMQ 连接成功")
+
+	//初始化队列
+	hotScoreChannel, err := queue.DeclareHotScoreQueue(rabbitConn)
+	if err != nil {
+		log.Fatalf("初始化热度队列失败: %v", err)
+	}
+	defer hotScoreChannel.Close()
+
+	log.Println("RabbitMQ 热度队列已就绪")
 
 	//读取密钥并检查
 	jwtSecret := os.Getenv("JWT_SECRET")
@@ -79,12 +90,20 @@ func main() {
 
 	//点赞
 	videoLikeRepo := repository.NewVideoLikeRepository(db)
-	videoLikeService := service.NewVideoLikeService(videoLikeRepo, videoRepo)
+	videoLikeService := service.NewVideoLikeService(
+		videoLikeRepo,
+		videoRepo,
+		hotScoreChannel,
+	)
 	videoLikeHandler := handler.NewVideoLikeHandler(videoLikeService)
 
 	//评论
 	commentRepo := repository.NewCommentRepository(db)
-	commentService := service.NewCommentService(commentRepo, videoRepo)
+	commentService := service.NewCommentService(
+		commentRepo,
+		videoRepo,
+		hotScoreChannel,
+	)
 	commentHandler := handler.NewCommentHandler(commentService)
 
 	//关注（关注塔菲谢谢喵）
@@ -98,6 +117,53 @@ func main() {
 
 	//热门视频
 	hotVideoRepo := repository.NewHotVideoRepository(redisClient)
+
+	//验证程序能收到消息，并解析出视频 ID 和分数变化
+	deliveries, err := queue.ConsumeHotScore(hotScoreChannel)
+	if err != nil {
+		log.Fatalf("启动热度消费者失败: %v", err)
+	}
+
+	go func() {
+		for delivery := range deliveries {
+			event, err := queue.DecodeHotScore(delivery.Body)
+			if err != nil {
+				log.Printf("解析热度消息失败，停止消费: %v", err)
+				return
+			}
+
+			//创建上下文，并给这次 Redis 操作设置 5 秒超时
+			ctx, cancel := context.WithTimeout(
+				context.Background(),
+				5*time.Second,
+			)
+
+			//调用之前写好的 Redis 方法
+			err = hotVideoRepo.IncrementScore(
+				ctx, // 控制操作的超时、取消
+				event.VideoID,
+				event.Delta,
+			)
+			cancel()
+
+			if err != nil {
+				log.Printf("更新 Redis 热度失败，停止消费: %v", err)
+				return
+			}
+
+			if err := delivery.Ack(false); err != nil {
+				log.Printf("确认热度消息失败，停止消费: %v", err)
+				return
+			}
+
+			log.Printf(
+				"热度更新完成：video_id=%d，delta=%v",
+				event.VideoID,
+				event.Delta,
+			)
+		}
+	}()
+
 	hotFeedService := service.NewHotFeedService(hotVideoRepo, videoRepo)
 	hotFeedHandler := handler.NewHotFeedHandler(hotFeedService)
 

@@ -2,9 +2,11 @@ package service
 
 import (
 	"errors"
+	"log"
 	"strings"
 
 	"example.com/video-feed/model"
+	"example.com/video-feed/queue"
 	"example.com/video-feed/repository"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"gorm.io/gorm"
@@ -63,6 +65,21 @@ func (s *CommentService) Create(
 		return nil, err
 	}
 
+	// 评论保存成功后，发布热度增加事件
+	if err := queue.PublishHotScore(
+		s.hotScoreChannel,
+		queue.HotScoreEvent{
+			VideoID: videoID,
+			Delta:   3,
+		},
+	); err != nil {
+		log.Printf(
+			"评论已保存，但发布热度事件失败：video_id=%d，err=%v",
+			videoID,
+			err,
+		)
+	}
+
 	return comment, nil
 }
 
@@ -90,8 +107,33 @@ func (s *CommentService) Delete(userID, commentID uint) error {
 	}
 
 	if comment.UserID != userID {
+
 		return ErrNotCommentOwner
 	}
 
-	return s.commentRepo.DeleteByID(commentID)
+	deleted, err := s.commentRepo.DeleteByID(commentID)
+	if err != nil {
+		return err
+	}
+
+	if !deleted {
+		return ErrCommentNotFound
+	}
+
+	if err := queue.PublishHotScore(
+		s.hotScoreChannel,
+		queue.HotScoreEvent{
+			VideoID: comment.VideoID,
+			Delta:   -3,
+		},
+	); err != nil {
+		log.Printf(
+			"评论已删除，但发布减分事件失败：comment_id=%d，video_id=%d，err=%v",
+			commentID,
+			comment.VideoID,
+			err,
+		)
+	}
+
+	return nil
 }

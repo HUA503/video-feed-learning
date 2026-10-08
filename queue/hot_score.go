@@ -46,5 +46,12 @@ func DecodeHotScore(body []byte) (HotScoreEvent, error) {
 		return HotScoreEvent{}, fmt.Errorf("解析热度消息失败: %w", err)
 	}
 
+	if event.VideoID == 0 {
+		return HotScoreEvent{}, fmt.Errorf("热度消息的视频 ID 必须大于 0")
+	}
+
+	if event.Delta == 0 {
+		return HotScoreEvent{}, fmt.Errorf("热度消息的分数变化不能为 0")
+	}
 	return event, nil
 }

@@ -43,6 +43,12 @@ func (r *CommentRepository) FindByID(id uint) (*model.Comment, error) {
 }
 
 // 删除评论
-func (r *CommentRepository) DeleteByID(id uint) error {
-	return r.db.Delete(&model.Comment{}, id).Error
+func (r *CommentRepository) DeleteByID(id uint) (bool, error) {
+	result := r.db.Delete(&model.Comment{}, id)
+
+	if result.Error != nil {
+		return false, result.Error
+	}
+
+	return result.RowsAffected > 0, nil
 }

@@ -31,12 +31,19 @@ func main() {
 
 	log.Println("RabbitMQ 连接成功")
 
-	//初始化队列
+	//初始化队列    //点赞、评论发布消息
 	hotScoreChannel, err := queue.DeclareHotScoreQueue(rabbitConn)
 	if err != nil {
 		log.Fatalf("初始化热度队列失败: %v", err)
 	}
 	defer hotScoreChannel.Close()
+
+	//接收消息、确认处理完成
+	hotScoreConsumerChannel, err := rabbitConn.Channel()
+	if err != nil {
+		log.Fatalf("创建热度消费者通道失败: %v", err)
+	}
+	defer hotScoreConsumerChannel.Close()
 
 	log.Println("RabbitMQ 热度队列已就绪")
 
@@ -119,7 +126,7 @@ func main() {
 	hotVideoRepo := repository.NewHotVideoRepository(redisClient)
 
 	//验证程序能收到消息，并解析出视频 ID 和分数变化
-	deliveries, err := queue.ConsumeHotScore(hotScoreChannel)
+	deliveries, err := queue.ConsumeHotScore(hotScoreConsumerChannel)
 	if err != nil {
 		log.Fatalf("启动热度消费者失败: %v", err)
 	}

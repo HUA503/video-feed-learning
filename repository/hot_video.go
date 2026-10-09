@@ -11,6 +11,19 @@ import (
 // 热门榜在 Redis 中使用的 key
 const hotVideosKey = "hot:videos"
 
+// 检查一条热度事件是否处理过
+// 调用时的键列表放进 KEYS，键列表后面的参数依次放进 ARGV
+var incrementScoreOnceScript = redis.NewScript(`
+if redis.call("EXISTS", KEYS[2]) == 1 then
+    return 0
+end
+
+redis.call("ZINCRBY", KEYS[1], ARGV[1], ARGV[2])
+redis.call("SET", KEYS[2], "1", "EX", ARGV[3])
+
+return 1
+`)
+
 type HotVideoRepository struct {
 	redisClient *redis.Client
 }
@@ -20,7 +33,7 @@ func NewHotVideoRepository(redisClient *redis.Client) *HotVideoRepository {
 }
 
 // 给某个视频在热门榜里增加热度分数
-func (r *HotVideoRepository) IncrementScore(
+/*func (r *HotVideoRepository) IncrementScore(
 	ctx context.Context, //调用方传入的上下文，用于控制这次 Redis 操作
 	videoID uint,
 	delta float64, //本次增加的分数，点赞加 1、评论加 3
@@ -30,6 +43,35 @@ func (r *HotVideoRepository) IncrementScore(
 	return r.redisClient.
 		ZIncrBy(ctx, hotVideosKey, delta, videoIDText).
 		Err()
+}*/
+
+// 给某个视频在热门榜里增加热度分数
+// 把参数传给脚本，再把执行结果返回给调用方
+func (r *HotVideoRepository) IncrementScoreOnce(
+	ctx context.Context,
+	eventID string,
+	videoID uint,
+	delta float64,
+) (bool, error) {
+	videoIDText := strconv.FormatUint(uint64(videoID), 10)
+	eventKey := "hot:event:" + eventID
+
+	const eventTTLSeconds = 7 * 24 * 60 * 60
+
+	//传入脚本
+	result, err := incrementScoreOnceScript.Run(
+		ctx,
+		r.redisClient,
+		[]string{hotVideosKey, eventKey},
+		delta,
+		videoIDText,
+		eventTTLSeconds,
+	).Int64()
+	if err != nil {
+		return false, err
+	}
+
+	return result == 1, nil
 }
 
 // 读取热度最高的视频 ID

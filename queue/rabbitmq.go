@@ -15,8 +15,10 @@ func ConnectRabbitMQ(url string) (*amqp.Connection, error) {
 	return conn, nil
 }
 
-// 声明用于热门分数事件的队列
-const HotScoreQueue = "video.hot.score"
+const (
+	HotScoreQueue     = "video.hot.score"      // 声明用于热门分数事件的队列
+	HotScoreDeadQueue = "video.hot.score.dead" //存放无效热度消息的队列
+)
 
 func DeclareHotScoreQueue(conn *amqp.Connection) (*amqp.Channel, error) {
 	channel, err := conn.Channel()
@@ -38,5 +40,18 @@ func DeclareHotScoreQueue(conn *amqp.Connection) (*amqp.Channel, error) {
 		return nil, fmt.Errorf("声明热度队列失败: %w", err)
 	}
 
+	// 声明用于存放无效热度消息的队列
+	_, err = channel.QueueDeclare(
+		HotScoreDeadQueue,
+		true,  // durable：持久化队列
+		false, // autoDelete：不自动删除
+		false, // exclusive：不限制当前连接独占
+		false, // noWait：等待声明结果
+		nil,
+	)
+	if err != nil {
+		channel.Close()
+		return nil, fmt.Errorf("声明热度死信队列失败: %w", err)
+	}
 	return channel, nil
 }

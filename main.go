@@ -135,8 +135,18 @@ func main() {
 		for delivery := range deliveries {
 			event, err := queue.DecodeHotScore(delivery.Body)
 			if err != nil {
-				log.Printf("解析热度消息失败，停止消费: %v", err)
-				return
+				log.Printf(
+					"收到无效热度消息：err=%v，body=%s",
+					err,
+					delivery.Body,
+				)
+
+				if rejectErr := delivery.Reject(false); rejectErr != nil {
+					log.Printf("拒绝无效热度消息失败，停止消费: %v", rejectErr)
+					return
+				}
+
+				continue
 			}
 
 			//创建上下文，并给这次 Redis 操作设置 5 秒超时
@@ -146,8 +156,9 @@ func main() {
 			)
 
 			//调用之前写好的 Redis 方法
-			err = hotVideoRepo.IncrementScore(
+			updated, err := hotVideoRepo.IncrementScoreOnce( //updated 接收本次有没有更新分数
 				ctx, // 控制操作的超时、取消
+				event.EventID,
 				event.VideoID,
 				event.Delta,
 			)
@@ -161,6 +172,12 @@ func main() {
 			if err := delivery.Ack(false); err != nil {
 				log.Printf("确认热度消息失败，停止消费: %v", err)
 				return
+			}
+
+			// 新增：重复事件已经处理过，跳过后面的成功日志
+			if !updated {
+				log.Printf("重复热度事件已跳过：event_id=%s", event.EventID)
+				continue
 			}
 
 			log.Printf(

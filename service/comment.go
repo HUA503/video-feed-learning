@@ -42,6 +42,7 @@ func (s *CommentService) Create(
 	videoID uint,
 	content string,
 ) (*model.Comment, error) {
+	// 确认视频存在
 	_, err := s.videoRepo.FindByID(videoID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -50,34 +51,38 @@ func (s *CommentService) Create(
 		return nil, err
 	}
 
+	// 检查评论内容
 	content = strings.TrimSpace(content)
 	if content == "" {
 		return nil, ErrInvalidComment
 	}
 
+	// 准备评论记录
 	comment := &model.Comment{
 		UserID:  userID,
 		VideoID: videoID,
 		Content: content,
 	}
 
-	if err := s.commentRepo.Create(comment); err != nil {
+	// 在保存事件之前生成固定的事件 ID
+	eventID, err := queue.GenerateEventID()
+	if err != nil {
 		return nil, err
 	}
 
-	// 评论保存成功后，发布热度增加事件
-	if err := queue.PublishHotScore(
-		s.hotScoreChannel,
-		queue.HotScoreEvent{
-			VideoID: videoID,
-			Delta:   3,
-		},
+	// 准备待发送的热度事件记录
+	outboxEvent := &model.HotScoreOutbox{
+		EventID: eventID,
+		VideoID: videoID,
+		Delta:   3,
+	}
+
+	// 在同一个事务中保存评论和事件
+	if err := s.commentRepo.CreateWithOutbox(
+		comment,
+		outboxEvent,
 	); err != nil {
-		log.Printf(
-			"评论已保存，但发布热度事件失败：video_id=%d，err=%v",
-			videoID,
-			err,
-		)
+		return nil, err
 	}
 
 	return comment, nil

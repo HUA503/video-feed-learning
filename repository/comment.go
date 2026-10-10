@@ -15,7 +15,29 @@ func NewCommentRepository(db *gorm.DB) *CommentRepository {
 }
 
 func (r *CommentRepository) Create(comment *model.Comment) error {
+
 	return r.db.Create(comment).Error
+}
+
+// 把“评论”和“对应的热度事件”一起保存到 MySQL
+func (r *CommentRepository) CreateWithOutbox(
+	comment *model.Comment,
+	event *model.HotScoreOutbox,
+) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		commentRepo := NewCommentRepository(tx)
+		outboxRepo := NewHotScoreOutboxRepository(tx)
+
+		if err := commentRepo.Create(comment); err != nil {
+			return err
+		}
+
+		if err := outboxRepo.Create(event); err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 // 按照视频 ID，从数据库中取出属于该视频的评论，并按发布时间从早到晚排列

@@ -1,10 +1,13 @@
 package queue
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
+	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -15,15 +18,25 @@ type HotScoreEvent struct {
 	EventID string  `json:"event_id"` //给每条热度消息加一个唯一的 event_id
 }
 
+// 生成一个随机的事件 ID，给每一条新的热度事件提供身份标识
+func GenerateEventID() (string, error) {
+	idBytes := make([]byte, 16)
+
+	if _, err := rand.Read(idBytes); err != nil {
+		return "", fmt.Errorf("生成热度事件 ID 失败: %w", err)
+	}
+
+	return hex.EncodeToString(idBytes), nil
+}
+
 func PublishHotScore(channel *amqp.Channel, event HotScoreEvent) error {
 	if event.EventID == "" {
-		idBytes := make([]byte, 16)
-
-		if _, err := rand.Read(idBytes); err != nil {
-			return fmt.Errorf("生成热度事件 ID 失败: %w", err)
+		eventID, err := GenerateEventID()
+		if err != nil {
+			return err
 		}
 
-		event.EventID = hex.EncodeToString(idBytes)
+		event.EventID = eventID
 	}
 
 	//将 JSON 解析
@@ -32,10 +45,47 @@ func PublishHotScore(channel *amqp.Channel, event HotScoreEvent) error {
 		return fmt.Errorf("编码热度消息失败: %w", err)
 	}
 
-	//发布消息
-	err = channel.Publish(
-		"",            // 使用 RabbitMQ 默认交换机
-		HotScoreQueue, // 路由到热度队列
+	//可重试（RabbitMQ）
+	const maxAttempts = 3
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		err = publishHotScoreOnce(channel, event, body)
+		if err == nil {
+			return nil
+		}
+
+		log.Printf(
+			"发送热度消息失败：event_id=%s，尝试=%d/%d，err=%v",
+			event.EventID,
+			attempt,
+			maxAttempts,
+			err,
+		)
+
+		if attempt < maxAttempts {
+			time.Sleep(time.Duration(attempt) * time.Second)
+		}
+	}
+
+	return fmt.Errorf(
+		"热度消息发送尝试 %d 次后仍失败：event_id=%s: %w",
+		maxAttempts,
+		event.EventID,
+		err,
+	)
+}
+
+func publishHotScoreOnce(
+	channel *amqp.Channel,
+	event HotScoreEvent,
+	body []byte,
+) error {
+
+	// 发布消息，并取得这条消息对应的确认对象
+	//confirmation 是“这条消息的发送确认对象”
+	confirmation, err := channel.PublishWithDeferredConfirm(
+		"",
+		HotScoreQueue,
 		false,
 		false,
 		amqp.Publishing{
@@ -45,8 +95,44 @@ func PublishHotScore(channel *amqp.Channel, event HotScoreEvent) error {
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("发送热度消息失败: %w", err)
+		return fmt.Errorf(
+			"发送热度消息失败：event_id=%s: %w",
+			event.EventID,
+			err,
+		)
 	}
+
+	if confirmation == nil {
+		return fmt.Errorf("RabbitMQ 发送通道未开启确认模式")
+	}
+
+	// 最多等待 5 秒，获取这条消息的发送确认
+	ctx, cancel := context.WithTimeout( //ctx：带有 5 秒期限的上下文
+		context.Background(),
+		5*time.Second,
+	)
+	defer cancel()
+
+	acked, err := confirmation.WaitContext(ctx)
+	if err != nil {
+		return fmt.Errorf(
+			"等待热度消息确认失败：event_id=%s: %w",
+			event.EventID,
+			err,
+		)
+	}
+
+	if !acked {
+		return fmt.Errorf(
+			"热度消息未获得 RabbitMQ 肯定确认：event_id=%s",
+			event.EventID,
+		)
+	}
+
+	log.Printf(
+		"热度消息已获得发送确认：event_id=%s",
+		event.EventID,
+	)
 
 	return nil
 }

@@ -45,6 +45,13 @@ func main() {
 	}
 	defer hotScoreConsumerChannel.Close()
 
+	//等待 RabbitMQ 回复“确认模式已开启”
+	if err := hotScoreChannel.Confirm(false); err != nil {
+		log.Fatalf("开启 RabbitMQ 发送确认模式失败: %v", err)
+	}
+
+	log.Println("RabbitMQ 发送确认模式已开启")
+
 	log.Println("RabbitMQ 热度队列已就绪")
 
 	//读取密钥并检查
@@ -81,6 +88,7 @@ func main() {
 		&model.VideoLike{},
 		&model.Comment{},
 		&model.Follow{},
+		&model.HotScoreOutbox{},
 	); err != nil {
 		log.Fatalf("数据库表迁移失败: %v", err)
 	}
@@ -149,24 +157,55 @@ func main() {
 				continue
 			}
 
-			//创建上下文，并给这次 Redis 操作设置 5 秒超时
-			ctx, cancel := context.WithTimeout(
-				context.Background(),
-				5*time.Second,
-			)
-
 			//调用之前写好的 Redis 方法
-			updated, err := hotVideoRepo.IncrementScoreOnce( //updated 接收本次有没有更新分数
-				ctx, // 控制操作的超时、取消
-				event.EventID,
-				event.VideoID,
-				event.Delta,
-			)
-			cancel()
+			var updated bool
+			const maxAttempts = 3
 
+			//尝试三次，测试是否是redis出问题
+			for attempt := 1; attempt <= maxAttempts; attempt++ {
+				ctx, cancel := context.WithTimeout( //创建上下文，并给这次 Redis 操作设置 5 秒超时
+					context.Background(),
+					5*time.Second,
+				)
+
+				//处理当前热度事件，接收处理结果，然后释放本次上下文的资源
+				updated, err = hotVideoRepo.IncrementScoreOnce(
+					ctx,
+					event.EventID,
+					event.VideoID,
+					event.Delta,
+				)
+				cancel()
+
+				// 成功处理，包括识别出重复事件
+				if err == nil {
+					break
+				}
+
+				log.Printf(
+					"更新 Redis 热度失败：event_id=%s，尝试=%d/%d，err=%v",
+					event.EventID,
+					attempt,
+					maxAttempts,
+					err,
+				)
+
+				// 第一次失败等 1 秒，第二次失败等 2 秒
+				if attempt < maxAttempts {
+					time.Sleep(time.Duration(attempt) * time.Second)
+				}
+			}
+
+			// 所有尝试都失败，交给死信队列
 			if err != nil {
-				log.Printf("更新 Redis 热度失败，停止消费: %v", err)
-				return
+				log.Printf("热度事件多次处理失败，转入死信队列：event_id=%s", event.EventID)
+
+				if rejectErr := delivery.Reject(false); rejectErr != nil {
+					log.Printf("拒绝热度消息失败，停止消费: %v", rejectErr)
+					return
+				}
+
+				continue
 			}
 
 			if err := delivery.Ack(false); err != nil {
@@ -190,6 +229,30 @@ func main() {
 
 	hotFeedService := service.NewHotFeedService(hotVideoRepo, videoRepo)
 	hotFeedHandler := handler.NewHotFeedHandler(hotFeedService)
+
+	outboxRepo := repository.NewHotScoreOutboxRepository(db)
+	outboxService := service.NewHotScoreOutboxService(
+		outboxRepo,
+		hotScoreChannel,
+	)
+
+	go func() {
+		//创建一个每隔两秒发送一次信号的定时器
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+
+		//定时器的通道
+		for range ticker.C {
+			if err := outboxService.PublishPending(
+				context.Background(),
+				10,
+			); err != nil {
+				log.Printf("后台发布 Outbox 事件失败: %v", err)
+			}
+		}
+	}()
+
+	log.Println("Outbox 后台发送任务已启动")
 
 	engine := router.New(
 		userHandler,

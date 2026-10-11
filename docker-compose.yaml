@@ -21,10 +21,11 @@ services:
   rabbitmq:
     image: rabbitmq:4-management
     container_name: video-feed-rabbitmq
+    hostname: ebfbc013399a
     restart: unless-stopped
     ports:
       - "5672:5672"
-      - "15672:15672"
+      - "127.0.0.1:18072:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
 volumes:

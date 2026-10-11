@@ -18,6 +18,10 @@ import (
 )
 
 func main() {
+	// 控制后台任务的生命周期
+	appCtx, cancelApp := context.WithCancel(context.Background())
+	defer cancelApp()
+
 	//连接 RabbitMQ
 	rabbitMQURL := os.Getenv("RABBITMQ_URL")
 	if rabbitMQURL == "" {
@@ -277,17 +281,27 @@ func main() {
 	)
 
 	go func() {
-		//创建一个每隔两秒发送一次信号的定时器
-		ticker := time.NewTicker(2 * time.Second)
+		ticker := time.NewTicker(2 * time.Second) //定时器
 		defer ticker.Stop()
 
-		//定时器的通道
-		for range ticker.C {
-			if err := outboxService.PublishPending(
-				context.Background(),
-				10,
-			); err != nil {
-				log.Printf("后台发布 Outbox 事件失败: %v", err)
+		for {
+			select {
+			case <-appCtx.Done(): //上下文被取消
+				log.Println("Outbox 后台发送任务已停止")
+				return
+
+			case <-ticker.C: //定时器触发时
+				if err := outboxService.PublishPending(
+					appCtx,
+					10,
+				); err != nil {
+					if appCtx.Err() != nil {
+						log.Println("Outbox 后台发送任务已停止")
+						return
+					}
+
+					log.Printf("后台发布 Outbox 事件失败: %v", err)
+				}
 			}
 		}
 	}()

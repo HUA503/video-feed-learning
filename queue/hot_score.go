@@ -29,7 +29,11 @@ func GenerateEventID() (string, error) {
 	return hex.EncodeToString(idBytes), nil
 }
 
-func PublishHotScore(channel *amqp.Channel, event HotScoreEvent) error {
+func PublishHotScore(
+	ctx context.Context,
+	channel *amqp.Channel,
+	event HotScoreEvent,
+) error {
 	if event.EventID == "" {
 		eventID, err := GenerateEventID()
 		if err != nil {
@@ -49,7 +53,7 @@ func PublishHotScore(channel *amqp.Channel, event HotScoreEvent) error {
 	const maxAttempts = 3
 
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		err = publishHotScoreOnce(channel, event, body)
+		err = publishHotScoreOnce(ctx, channel, event, body)
 		if err == nil {
 			return nil
 		}
@@ -76,6 +80,7 @@ func PublishHotScore(channel *amqp.Channel, event HotScoreEvent) error {
 }
 
 func publishHotScoreOnce(
+	ctx context.Context,
 	channel *amqp.Channel,
 	event HotScoreEvent,
 	body []byte,
@@ -107,13 +112,13 @@ func publishHotScoreOnce(
 	}
 
 	// 最多等待 5 秒，获取这条消息的发送确认
-	ctx, cancel := context.WithTimeout( //ctx：带有 5 秒期限的上下文
-		context.Background(),
+	confirmCtx, cancel := context.WithTimeout( //ctx：带有 5 秒期限的上下文
+		ctx,
 		5*time.Second,
 	)
 	defer cancel()
 
-	acked, err := confirmation.WaitContext(ctx)
+	acked, err := confirmation.WaitContext(confirmCtx)
 	if err != nil {
 		return fmt.Errorf(
 			"等待热度消息确认失败：event_id=%s: %w",

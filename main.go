@@ -172,8 +172,11 @@ func main() {
 				)
 
 				if rejectErr := delivery.Reject(false); rejectErr != nil {
-					log.Printf("拒绝无效热度消息失败，停止消费: %v", rejectErr)
-					return
+					log.Printf(
+						"拒绝无效热度消息失败，继续等待后续投递：%v",
+						rejectErr,
+					)
+					continue
 				}
 
 				continue
@@ -220,19 +223,34 @@ func main() {
 
 			// 所有尝试都失败，交给死信队列
 			if err != nil {
-				log.Printf("热度事件多次处理失败，转入死信队列：event_id=%s", event.EventID)
+				log.Printf(
+					"热度事件多次处理失败，准备拒绝消息：event_id=%s",
+					event.EventID,
+				)
 
 				if rejectErr := delivery.Reject(false); rejectErr != nil {
-					log.Printf("拒绝热度消息失败，停止消费: %v", rejectErr)
-					return
+					log.Printf(
+						"拒绝热度消息失败，继续等待后续投递：event_id=%s，err=%v",
+						event.EventID,
+						rejectErr,
+					)
+					continue
 				}
 
+				log.Printf(
+					"已发送热度消息拒绝请求：event_id=%s",
+					event.EventID,
+				)
 				continue
 			}
 
 			if err := delivery.Ack(false); err != nil {
-				log.Printf("确认热度消息失败，停止消费: %v", err)
-				return
+				log.Printf(
+					"确认热度消息失败，继续等待后续投递：event_id=%s，err=%v",
+					event.EventID,
+					err,
+				)
+				continue
 			}
 
 			// 新增：重复事件已经处理过，跳过后面的成功日志

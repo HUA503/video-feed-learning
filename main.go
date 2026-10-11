@@ -108,7 +108,6 @@ func main() {
 	videoLikeService := service.NewVideoLikeService(
 		videoLikeRepo,
 		videoRepo,
-		hotScoreChannel,
 	)
 	videoLikeHandler := handler.NewVideoLikeHandler(videoLikeService)
 
@@ -117,7 +116,6 @@ func main() {
 	commentService := service.NewCommentService(
 		commentRepo,
 		videoRepo,
-		hotScoreChannel,
 	)
 	commentHandler := handler.NewCommentHandler(commentService)
 

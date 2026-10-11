@@ -74,3 +74,39 @@ func (r *CommentRepository) DeleteByID(id uint) (bool, error) {
 
 	return result.RowsAffected > 0, nil
 }
+
+// 删除评论，同时保存减分事件
+func (r *CommentRepository) DeleteWithOutbox(
+	commentID uint,
+	event *model.HotScoreOutbox,
+) (bool, error) {
+	var deleted bool
+
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		// 在当前事务中删除评论
+		result := tx.Delete(&model.Comment{}, commentID)
+		if result.Error != nil {
+			return result.Error
+		}
+
+		// 没有实际删除记录，就不保存减分事件
+		if result.RowsAffected == 0 {
+			return nil
+		}
+
+		// 在同一个事务中保存减分事件
+		outboxRepo := NewHotScoreOutboxRepository(tx) //创建使用当前事务
+		if err := outboxRepo.Create(event); err != nil {
+			return err
+		}
+
+		deleted = true
+		return nil
+	})
+
+	if err != nil {
+		return false, err
+	}
+
+	return deleted, nil
+}

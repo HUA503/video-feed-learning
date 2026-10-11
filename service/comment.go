@@ -2,13 +2,11 @@ package service
 
 import (
 	"errors"
-	"log"
 	"strings"
 
 	"example.com/video-feed/model"
 	"example.com/video-feed/queue"
 	"example.com/video-feed/repository"
-	amqp "github.com/rabbitmq/amqp091-go"
 	"gorm.io/gorm"
 )
 
@@ -19,20 +17,17 @@ var (
 )
 
 type CommentService struct {
-	commentRepo     *repository.CommentRepository
-	videoRepo       *repository.VideoRepository
-	hotScoreChannel *amqp.Channel
+	commentRepo *repository.CommentRepository
+	videoRepo   *repository.VideoRepository
 }
 
 func NewCommentService(
 	commentRepo *repository.CommentRepository,
 	videoRepo *repository.VideoRepository,
-	hotScoreChannel *amqp.Channel,
 ) *CommentService {
 	return &CommentService{
-		commentRepo:     commentRepo,
-		videoRepo:       videoRepo,
-		hotScoreChannel: hotScoreChannel,
+		commentRepo: commentRepo,
+		videoRepo:   videoRepo,
 	}
 }
 
@@ -103,6 +98,7 @@ func (s *CommentService) ListByVideoID(videoID uint) ([]model.Comment, error) {
 
 // 先按评论 ID查评论，比较评论的 UserID 和当前登录用户的 ID
 func (s *CommentService) Delete(userID, commentID uint) error {
+	// 1. 查询要删除的评论
 	comment, err := s.commentRepo.FindByID(commentID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -111,33 +107,35 @@ func (s *CommentService) Delete(userID, commentID uint) error {
 		return err
 	}
 
+	// 2. 只有评论作者才能删除
 	if comment.UserID != userID {
-
 		return ErrNotCommentOwner
 	}
 
-	deleted, err := s.commentRepo.DeleteByID(commentID)
+	// 3. 为本次删除生成一个新的事件 ID
+	eventID, err := queue.GenerateEventID()
+	if err != nil {
+		return err
+	}
+
+	// 4. 准备减分事件
+	outboxEvent := &model.HotScoreOutbox{
+		EventID: eventID,
+		VideoID: comment.VideoID,
+		Delta:   -3,
+	}
+
+	// 5. 在同一个事务中删除评论、保存减分事件
+	deleted, err := s.commentRepo.DeleteWithOutbox(
+		commentID,
+		outboxEvent,
+	)
 	if err != nil {
 		return err
 	}
 
 	if !deleted {
 		return ErrCommentNotFound
-	}
-
-	if err := queue.PublishHotScore(
-		s.hotScoreChannel,
-		queue.HotScoreEvent{
-			VideoID: comment.VideoID,
-			Delta:   -3,
-		},
-	); err != nil {
-		log.Printf(
-			"评论已删除，但发布减分事件失败：comment_id=%d，video_id=%d，err=%v",
-			commentID,
-			comment.VideoID,
-			err,
-		)
 	}
 
 	return nil

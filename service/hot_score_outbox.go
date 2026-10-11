@@ -47,7 +47,7 @@ func (s *HotScoreOutboxService) PublishPending(
 
 		// 使用数据库中保存的原事件 ID 发布消息
 		err := queue.PublishHotScore(
-			s.hotScoreChannel,
+			s.hotScoreChannel, //发送到 video.hot.score 队列
 			queue.HotScoreEvent{
 				EventID: event.EventID,
 				VideoID: event.VideoID,

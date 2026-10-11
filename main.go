@@ -14,6 +14,7 @@ import (
 	"example.com/video-feed/repository"
 	"example.com/video-feed/router"
 	"example.com/video-feed/service"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 func main() {
@@ -28,6 +29,29 @@ func main() {
 		log.Fatalf("连接 RabbitMQ 失败: %v", err)
 	}
 	defer rabbitConn.Close()
+
+	// 注册 RabbitMQ 连接状态变化通知
+	rabbitStates := make(chan *amqp.StateChanged, 8)
+	rabbitConn.NotifyStateChange(rabbitStates)
+
+	// 持续接收状态变化
+	go func() {
+		for change := range rabbitStates {
+			log.Printf(
+				"RabbitMQ 连接状态变化：%s -> %s",
+				change.From,
+				change.To,
+			)
+
+			if change.Err != nil {
+				log.Printf("RabbitMQ 恢复终止：%v", change.Err)
+			}
+
+			for _, entity := range change.SkippedTopologyEntities {
+				log.Printf("RabbitMQ 恢复时跳过资源：%v", entity)
+			}
+		}
+	}()
 
 	log.Println("RabbitMQ 连接成功")
 

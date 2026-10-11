@@ -2,12 +2,25 @@ package queue
 
 import (
 	"fmt"
+	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 func ConnectRabbitMQ(url string) (*amqp.Connection, error) {
-	conn, err := amqp.Dial(url) //建立 RabbitMQ 连接
+	conn, err := amqp.DialConfig(url, amqp.Config{ //url：连接哪个 RabbitMQ、使用什么账号密码
+		Heartbeat: 10 * time.Second, //amqp.Config：连接与恢复采用哪些设置
+		Locale:    "en_US",
+
+		//启用恢复的关键配置
+		Recovery: &amqp.Recovery{
+			ReconnectionConfig: &amqp.ReconnectionConfig{
+				MaxRetryCount: 300,
+				RetryInterval: 2 * time.Second,
+			},
+			TopologyRecoveryMode: amqp.TopologyRecoveryAllEnabled,
+		},
+	})
 	if err != nil {
 		return nil, fmt.Errorf("连接 RabbitMQ 失败: %w", err)
 	}

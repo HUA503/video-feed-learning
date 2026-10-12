@@ -53,7 +53,14 @@ func PublishHotScore(
 	const maxAttempts = 3
 
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		// 每次尝试发送前，检查是否已经取消
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
 		err = publishHotScoreOnce(ctx, channel, event, body)
+
+		// 后面的失败日志、等待重试代码保持原样
 		if err == nil {
 			return nil
 		}
@@ -67,10 +74,15 @@ func PublishHotScore(
 		)
 
 		if attempt < maxAttempts {
-			time.Sleep(time.Duration(attempt) * time.Second)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+
+			case <-time.After(time.Duration(attempt) * time.Second):
+				// 等待结束，继续下一次发送尝试
+			}
 		}
 	}
-
 	return fmt.Errorf(
 		"热度消息发送尝试 %d 次后仍失败：event_id=%s: %w",
 		maxAttempts,

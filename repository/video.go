@@ -90,3 +90,42 @@ func (r *VideoRepository) ListByUserIDs(
 
 	return videos, total, nil
 }
+
+// 按指定用户筛选视频，从游标位置继续向后读取
+func (r *VideoRepository) ListByUserIDsAfter(
+	userIDs []uint,
+	cursor *model.VideoCursor,
+	limit int,
+) ([]model.Video, error) {
+	videos := make([]model.Video, 0)
+
+	if len(userIDs) == 0 || limit <= 0 {
+		return videos, nil
+	}
+
+	query := r.db.Model(&model.Video{}).
+		Where("user_id IN ?", userIDs)
+
+	// 第一页没有游标；后续页根据上一页最后一条视频的位置筛选
+	if cursor != nil {
+		query = query.Where(
+			"(created_at < ? OR (created_at = ? AND id < ?))",
+			cursor.CreatedAt,
+			cursor.CreatedAt,
+			cursor.ID,
+		)
+	}
+
+	err := query.
+		Order("created_at DESC").
+		Order("id DESC").
+		Limit(limit).
+		Find(&videos).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return videos, nil
+}

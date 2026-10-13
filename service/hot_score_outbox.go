@@ -50,9 +50,10 @@ func (s *HotScoreOutboxService) PublishPending(
 			ctx,
 			s.hotScoreChannel, //发送到 video.hot.score 队列
 			queue.HotScoreEvent{
-				EventID: event.EventID,
-				VideoID: event.VideoID,
-				Delta:   event.Delta,
+				EventID:    event.EventID,
+				VideoID:    event.VideoID,
+				Delta:      event.Delta,
+				OccurredAt: event.CreatedAt,
 			},
 		)
 		if err != nil {

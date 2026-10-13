@@ -13,9 +13,10 @@ import (
 )
 
 type HotScoreEvent struct {
-	VideoID uint    `json:"video_id"`
-	Delta   float64 `json:"delta"`    //分数变化
-	EventID string  `json:"event_id"` //给每条热度消息加一个唯一的 event_id
+	VideoID    uint      `json:"video_id"`
+	Delta      float64   `json:"delta"`
+	EventID    string    `json:"event_id"`
+	OccurredAt time.Time `json:"occurred_at"`
 }
 
 // 生成一个随机的事件 ID，给每一条新的热度事件提供身份标识

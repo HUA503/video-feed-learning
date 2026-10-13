@@ -223,6 +223,7 @@ func main() {
 
 			//调用之前写好的 Redis 方法
 			var updated bool
+			var windowUpdated bool
 			const maxAttempts = 3
 
 			//尝试三次，测试是否是redis出问题
@@ -233,12 +234,28 @@ func main() {
 				)
 
 				//处理当前热度事件，接收处理结果，然后释放本次上下文的资源
+				// 处理累计榜
 				updated, err = hotVideoRepo.IncrementScoreOnce(
 					ctx,
 					event.EventID,
 					event.VideoID,
 					event.Delta,
 				)
+
+				// 累计榜处理成功后，再处理窗口榜
+				windowUpdated = false
+
+				if err == nil && !event.OccurredAt.IsZero() {
+					windowUpdated, err = hotVideoRepo.RecordWindowEventOnce(
+						ctx,
+						event.EventID,
+						event.VideoID,
+						event.Delta,
+						event.OccurredAt,
+					)
+				}
+
+				// 两个 Redis 操作结束后，再释放上下文资源
 				cancel()
 
 				// 成功处理，包括识别出重复事件
@@ -293,15 +310,13 @@ func main() {
 			}
 
 			// 新增：重复事件已经处理过，跳过后面的成功日志
-			if !updated {
-				log.Printf("重复热度事件已跳过：event_id=%s", event.EventID)
-				continue
-			}
-
 			log.Printf(
-				"热度更新完成：video_id=%d，delta=%v",
+				"热度事件处理完成：event_id=%s，video_id=%d，delta=%v，累计榜本次更新=%t，窗口榜本次更新=%t",
+				event.EventID,
 				event.VideoID,
 				event.Delta,
+				updated,
+				windowUpdated,
 			)
 		}
 	}()
@@ -361,9 +376,6 @@ func main() {
 		hotFeedHandler,
 	)
 
-	/*if err := engine.Run(":8080"); err != nil {
-		log.Fatal(err)
-	}*/
 	// 创建 HTTP 服务，使用 Gin 处理请求
 	httpServer := &http.Server{
 		Addr:    ":8080",

@@ -57,40 +57,6 @@ func (r *VideoRepository) List(
 	return videos, total, nil //视频列表、视频总数、错误
 }
 
-// 只查指定用户发布的视频
-func (r *VideoRepository) ListByUserIDs(
-	userIDs []uint,
-	page int,
-	pageSize int,
-) ([]model.Video, int64, error) {
-	videos := make([]model.Video, 0)
-	var total int64
-
-	if len(userIDs) == 0 {
-		return videos, 0, nil
-	}
-
-	query := r.db.Model(&model.Video{}).
-		Where("user_id IN ?", userIDs)
-
-	if err := query.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-
-	offset := (page - 1) * pageSize
-
-	if err := query.
-		Order("created_at DESC").
-		Order("id DESC").
-		Limit(pageSize).
-		Offset(offset).
-		Find(&videos).Error; err != nil {
-		return nil, 0, err
-	}
-
-	return videos, total, nil
-}
-
 // 按指定用户筛选视频，从游标位置继续向后读取
 func (r *VideoRepository) ListByUserIDsAfter(
 	userIDs []uint,

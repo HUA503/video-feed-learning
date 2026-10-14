@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"example.com/video-feed/model"
@@ -64,34 +65,61 @@ func (s *HotFeedService) loadTopVideos(
 	return orderedVideos, nil
 }
 
-// 优先读取列表缓存，未命中时查询并回填缓存
+// 优先读取缓存，未命中时合并相同的查询
 func (s *HotFeedService) TopVideos(
 	ctx context.Context,
 	limit int,
 ) ([]model.Video, error) {
+	// 第一次检查：有缓存就直接返回
 	cachedVideos, hit, err := s.hotVideoRepo.GetCachedWindowVideos(
 		ctx,
 		limit,
 	)
 	if err != nil {
 		log.Printf("读取热门列表缓存失败，继续查询榜单: %v", err)
-	} else if hit {
+	} else if hit { //有没有读到可用缓存
 		return cachedVideos, nil
 	}
 
-	// 没有可用缓存，执行原来的查询逻辑
-	videos, err := s.loadTopVideos(ctx, limit)
+	// 相同 limit 的查询使用相同的合并 key
+	key := fmt.Sprintf("hot-window-feed:%d", limit)
+
+	value, err, _ := s.hotFeedGroup.Do(key, func() (any, error) {
+		// 第二次检查：其他请求可能已经生成了缓存
+		cachedVideos, hit, err := s.hotVideoRepo.GetCachedWindowVideos(
+			ctx,
+			limit,
+		)
+		if err != nil {
+			log.Printf("再次读取热门列表缓存失败，继续查询榜单: %v", err)
+		} else if hit {
+			return cachedVideos, nil
+		}
+
+		//查询排名和详情
+		videos, err := s.loadTopVideos(ctx, limit)
+		if err != nil {
+			return nil, err
+		}
+
+		//保存缓存
+		if err := s.hotVideoRepo.SetCachedWindowVideos(
+			ctx,
+			limit,
+			videos,
+		); err != nil {
+			log.Printf("保存热门列表缓存失败: %v", err)
+		}
+
+		return videos, nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	// 查询成功后，保存一份 5 秒缓存
-	if err := s.hotVideoRepo.SetCachedWindowVideos(
-		ctx,
-		limit,
-		videos,
-	); err != nil {
-		log.Printf("保存热门列表缓存失败: %v", err)
+	videos, ok := value.([]model.Video)
+	if !ok {
+		return nil, fmt.Errorf("热门列表合并查询结果类型错误")
 	}
 
 	return videos, nil

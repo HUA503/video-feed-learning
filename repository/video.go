@@ -1,6 +1,9 @@
 package repository
 
 import (
+	"context"
+	"fmt"
+
 	"example.com/video-feed/model"
 	"gorm.io/gorm"
 )
@@ -89,6 +92,31 @@ func (r *VideoRepository) ListByUserIDsAfter(
 		Find(&videos).
 		Error
 
+	if err != nil {
+		return nil, err
+	}
+
+	return videos, nil
+}
+
+// 查询最新发布的视频，供热门接口降级时使用
+func (r *VideoRepository) ListLatest(
+	ctx context.Context,
+	limit int,
+) ([]model.Video, error) {
+	if limit < 1 || limit > 50 {
+		return nil, fmt.Errorf("最新视频查询数量必须在 1 到 50 之间")
+	}
+
+	videos := make([]model.Video, 0)
+
+	err := r.db.
+		WithContext(ctx).
+		Order("created_at DESC").
+		Order("id DESC").
+		Limit(limit).
+		Find(&videos).
+		Error
 	if err != nil {
 		return nil, err
 	}

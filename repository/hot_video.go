@@ -33,19 +33,6 @@ func NewHotVideoRepository(redisClient *redis.Client) *HotVideoRepository {
 }
 
 // 给某个视频在热门榜里增加热度分数
-/*func (r *HotVideoRepository) IncrementScore(
-	ctx context.Context, //调用方传入的上下文，用于控制这次 Redis 操作
-	videoID uint,
-	delta float64, //本次增加的分数，点赞加 1、评论加 3
-) error {
-	videoIDText := strconv.FormatUint(uint64(videoID), 10)
-
-	return r.redisClient.
-		ZIncrBy(ctx, hotVideosKey, delta, videoIDText).
-		Err()
-}*/
-
-// 给某个视频在热门榜里增加热度分数
 // 把参数传给脚本，再把执行结果返回给调用方
 func (r *HotVideoRepository) IncrementScoreOnce(
 	ctx context.Context,
@@ -105,8 +92,11 @@ func (r *HotVideoRepository) TopVideoIDs(
 	return videoIDs, nil
 }
 
-// 用上面筛选的 ID 去 MySQL 查询视频详情
-func (r *VideoRepository) FindByIDs(ids []uint) ([]model.Video, error) {
+// 根据多个视频 ID 查询详情，并传递上下文
+func (r *VideoRepository) FindByIDs(
+	ctx context.Context,
+	ids []uint, //要查询的视频 ID 切片
+) ([]model.Video, error) {
 	videos := make([]model.Video, 0)
 
 	if len(ids) == 0 {
@@ -114,6 +104,7 @@ func (r *VideoRepository) FindByIDs(ids []uint) ([]model.Video, error) {
 	}
 
 	err := r.db.
+		WithContext(ctx). //把上下文交给 GORM，让这次数据库操作能收到取消或超时通知
 		Where("id IN ?", ids).
 		Find(&videos).
 		Error

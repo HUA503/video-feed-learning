@@ -2,18 +2,26 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
+	"sync"
+	"time"
 
 	"example.com/video-feed/model"
 	"example.com/video-feed/repository"
 	"golang.org/x/sync/singleflight"
 )
 
+var ErrHotRankingUnavailable = errors.New("窗口热榜暂不可用")
+
 type HotFeedService struct {
 	hotVideoRepo *repository.HotVideoRepository
 	videoRepo    *repository.VideoRepository
 	hotFeedGroup singleflight.Group //当前有哪些查询正在执行，哪些请求可以等待并共享结果
+
+	latestCacheMu sync.RWMutex //按 limit 保存不同数量的视频列表
+	latestCache   map[int]latestFeedCacheEntry
 }
 
 func NewHotFeedService(
@@ -23,6 +31,7 @@ func NewHotFeedService(
 	return &HotFeedService{
 		hotVideoRepo: hotVideoRepo,
 		videoRepo:    videoRepo,
+		latestCache:  make(map[int]latestFeedCacheEntry),
 	}
 }
 
@@ -35,7 +44,7 @@ func (s *HotFeedService) loadTopVideos(
 	//读取热度最高的视频 ID
 	videoIDs, err := s.hotVideoRepo.TopWindowVideoIDs(ctx, limit)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrHotRankingUnavailable, err)
 	}
 
 	if len(videoIDs) == 0 {
@@ -43,7 +52,7 @@ func (s *HotFeedService) loadTopVideos(
 	}
 
 	//去 MySQL 查询视频详情
-	videos, err := s.videoRepo.FindByIDs(videoIDs)
+	videos, err := s.videoRepo.FindByIDs(ctx, videoIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +75,7 @@ func (s *HotFeedService) loadTopVideos(
 }
 
 // 优先读取缓存，未命中时合并相同的查询
-func (s *HotFeedService) TopVideos(
+func (s *HotFeedService) topWindowVideos(
 	ctx context.Context,
 	limit int,
 ) ([]model.Video, error) {
@@ -84,10 +93,17 @@ func (s *HotFeedService) TopVideos(
 	// 相同 limit 的查询使用相同的合并 key
 	key := fmt.Sprintf("hot-window-feed:%d", limit)
 
-	value, err, _ := s.hotFeedGroup.Do(key, func() (any, error) {
-		// 第二次检查：其他请求可能已经生成了缓存
+	resultCh := s.hotFeedGroup.DoChan(key, func() (any, error) {
+		// 为共享查询设置独立的 5 秒期限
+		queryCtx, queryCancel := context.WithTimeout(
+			context.WithoutCancel(ctx),
+			5*time.Second,
+		)
+		defer queryCancel()
+
+		// 再次检查缓存
 		cachedVideos, hit, err := s.hotVideoRepo.GetCachedWindowVideos(
-			ctx,
+			queryCtx,
 			limit,
 		)
 		if err != nil {
@@ -96,15 +112,15 @@ func (s *HotFeedService) TopVideos(
 			return cachedVideos, nil
 		}
 
-		//查询排名和详情
-		videos, err := s.loadTopVideos(ctx, limit)
+		// 查询窗口排名和 MySQL 视频详情
+		videos, err := s.loadTopVideos(queryCtx, limit)
 		if err != nil {
 			return nil, err
 		}
 
-		//保存缓存
+		// 保存列表缓存
 		if err := s.hotVideoRepo.SetCachedWindowVideos(
-			ctx,
+			queryCtx,
 			limit,
 			videos,
 		); err != nil {
@@ -113,14 +129,64 @@ func (s *HotFeedService) TopVideos(
 
 		return videos, nil
 	})
-	if err != nil {
+	select {
+	case <-ctx.Done():
+		// 当前请求取消，结束它自己的等待
+		return nil, ctx.Err()
+
+	case result := <-resultCh:
+		// 共享查询完成，检查结果
+		if result.Err != nil {
+			return nil, result.Err
+		}
+
+		videos, ok := result.Val.([]model.Video)
+		if !ok {
+			return nil, fmt.Errorf("热门列表合并查询结果类型错误")
+		}
+
+		return videos, nil
+	}
+}
+
+// 优先返回窗口热榜，窗口榜不可用时尝试最新视频兜底
+func (s *HotFeedService) TopVideos(
+	ctx context.Context,
+	limit int,
+) (*model.HotFeedResult, error) {
+	videos, err := s.topWindowVideos(ctx, limit)
+	if err == nil {
+		return &model.HotFeedResult{
+			Videos:   videos,
+			Degraded: false,
+			Source:   model.HotFeedSourceWindow,
+		}, nil
+	}
+
+	// 当前请求已经取消，就不再启动兜底查询
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+
+	// 只有窗口榜不可用，才进入降级路径
+	if !errors.Is(err, ErrHotRankingUnavailable) {
 		return nil, err
 	}
 
-	videos, ok := value.([]model.Video)
-	if !ok {
-		return nil, fmt.Errorf("热门列表合并查询结果类型错误")
+	log.Printf(
+		"窗口热榜不可用，尝试最新视频降级：limit=%d，err=%v",
+		limit,
+		err,
+	)
+
+	latestVideos, fallbackErr := s.topLatestVideos(ctx, limit)
+	if fallbackErr != nil {
+		return nil, fallbackErr
 	}
 
-	return videos, nil
+	return &model.HotFeedResult{
+		Videos:   latestVideos,
+		Degraded: true,
+		Source:   model.HotFeedSourceLatest,
+	}, nil
 }

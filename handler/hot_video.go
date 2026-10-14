@@ -24,7 +24,7 @@ func (h *HotFeedHandler) List(c *gin.Context) {
 		return
 	}
 
-	videos, err := h.hotFeedService.TopVideos(c.Request.Context(), limit)
+	feedResult, err := h.hotFeedService.TopVideos(c.Request.Context(), limit)
 	if err != nil {
 		log.Printf("查询热门视频失败: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询热门视频失败"})
@@ -32,7 +32,9 @@ func (h *HotFeedHandler) List(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"videos": videos,
-		"limit":  limit,
+		"videos":   feedResult.Videos,
+		"limit":    limit,
+		"degraded": feedResult.Degraded,
+		"source":   feedResult.Source,
 	})
 }

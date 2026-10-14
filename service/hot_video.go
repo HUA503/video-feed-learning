@@ -22,14 +22,14 @@ func NewHotFeedService(
 	}
 }
 
-// TopVideoIDs 从 Redis 取出按热度排序的视频 ID
+// TopWindowVideoIDs 从 Redis 窗口榜取出按热度排序的视频 ID
 // FindByIDs 到 MySQL 查询这些视频的完整信息
 func (s *HotFeedService) TopVideos(
 	ctx context.Context,
 	limit int,
 ) ([]model.Video, error) {
 	//读取热度最高的视频 ID
-	videoIDs, err := s.hotVideoRepo.TopVideoIDs(ctx, limit)
+	videoIDs, err := s.hotVideoRepo.TopWindowVideoIDs(ctx, limit)
 	if err != nil {
 		return nil, err
 	}

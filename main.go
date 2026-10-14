@@ -321,6 +321,54 @@ func main() {
 		}
 	}()
 
+	// 登记窗口热度清理任务
+	var windowCleanupWG sync.WaitGroup
+	windowCleanupWG.Add(1)
+
+	go func() {
+		defer windowCleanupWG.Done()
+
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-appCtx.Done():
+				log.Println("窗口热度清理任务已停止")
+				return
+
+			case <-ticker.C:
+				// 每次清理最多使用 5 秒
+				cleanupCtx, cleanupCancel := context.WithTimeout(
+					appCtx,
+					5*time.Second,
+				)
+
+				cleaned, err := hotVideoRepo.CleanupExpiredWindowEvents(
+					cleanupCtx,
+					100,
+				)
+				cleanupCancel()
+
+				if err != nil {
+					if appCtx.Err() != nil {
+						log.Println("窗口热度清理任务已停止")
+						return
+					}
+
+					log.Printf("清理过期窗口事件失败: %v", err)
+					continue
+				}
+
+				if cleaned > 0 {
+					log.Printf("已清理过期窗口事件：数量=%d", cleaned)
+				}
+			}
+		}
+	}()
+
+	log.Println("窗口热度清理任务已启动")
+
 	hotFeedService := service.NewHotFeedService(hotVideoRepo, videoRepo)
 	hotFeedHandler := handler.NewHotFeedHandler(hotFeedService)
 
@@ -413,7 +461,7 @@ func main() {
 
 	log.Println("HTTP 服务已停止")
 
-	// 两个后台任务共用一个等待期限，最多等待 20 秒
+	// 三个后台任务共用一个等待期限，最多等待 20 秒
 	backgroundStopCtx, backgroundStopCancel := context.WithTimeout(
 		context.Background(),
 		20*time.Second,
@@ -432,6 +480,13 @@ func main() {
 		log.Printf("等待热度消费者结束失败: %v", err)
 	} else {
 		log.Println("热度消费者已结束")
+	}
+
+	log.Println("等待窗口热度清理任务结束")
+	if err := waitForBackgroundTask(backgroundStopCtx, &windowCleanupWG); err != nil {
+		log.Printf("等待窗口热度清理任务结束失败: %v", err)
+	} else {
+		log.Println("窗口热度清理任务已结束")
 	}
 
 	log.Println("后台退出等待结束，准备关闭连接并退出")

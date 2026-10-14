@@ -122,3 +122,137 @@ func (r *HotVideoRepository) RecordWindowEventOnce(
 		return false, fmt.Errorf("窗口脚本返回未知结果: %d", result)
 	}
 }
+
+// 分批清理过期事件，并撤销它们对窗口分数的贡献
+var cleanupWindowEventsScript = redis.NewScript(`
+local cutoff = tonumber(ARGV[1])    
+local limit = tonumber(ARGV[2])
+
+-- 写入前检查三个 key 的数据类型
+local videosType = redis.call("TYPE", KEYS[1]).ok
+local eventsType = redis.call("TYPE", KEYS[2]).ok
+local dataType = redis.call("TYPE", KEYS[3]).ok
+
+if (videosType ~= "none" and videosType ~= "zset")
+    or (eventsType ~= "none" and eventsType ~= "zset")
+    or (dataType ~= "none" and dataType ~= "hash") then
+    return redis.error_reply("window key type mismatch")
+end
+
+-- 找出一批发生时间小于或等于窗口起点的事件
+local eventIDs = redis.call(
+    "ZRANGEBYSCORE", KEYS[2],
+    "-inf", cutoff,
+    "LIMIT", 0, limit
+)
+
+-- 先读取并检查本批事件内容，再开始修改分数
+local events = {}
+
+for _, eventID in ipairs(eventIDs) do
+    local body = redis.call("HGET", KEYS[3], eventID)
+
+    if not body then
+        return redis.error_reply("window event data missing")
+    end
+
+    local data = cjson.decode(body)
+
+    if type(data.video_id) ~= "string"
+        or type(data.delta) ~= "number" then
+        return redis.error_reply("window event data invalid")
+    end
+
+    table.insert(events, {
+        eventID = eventID,
+        videoID = data.video_id,
+        delta = data.delta
+    })
+end
+
+-- 撤销分数贡献，再删除对应的窗口事件记录
+for _, event in ipairs(events) do
+    local score = redis.call(
+        "ZINCRBY", KEYS[1],
+        -event.delta, event.videoID
+    )
+
+    if tonumber(score) == 0 then
+        redis.call("ZREM", KEYS[1], event.videoID)
+    end
+
+    redis.call("ZREM", KEYS[2], event.eventID)
+    redis.call("HDEL", KEYS[3], event.eventID)
+end
+
+return #events
+`)
+
+// 清理一批过期窗口事件，返回本次清理的事件数量
+func (r *HotVideoRepository) CleanupExpiredWindowEvents(
+	ctx context.Context,
+	limit int,
+) (int64, error) {
+	if limit <= 0 || limit > 1000 {
+		return 0, fmt.Errorf("窗口清理数量必须在 1 到 1000 之间")
+	}
+
+	// 当前时间减去 24 小时，得到窗口起点
+	cutoff := time.Now().Add(-hotWindowDuration).UnixMilli()
+
+	cleaned, err := cleanupWindowEventsScript.Run(
+		ctx,
+		r.redisClient,
+		[]string{
+			hotWindowVideosKey,
+			hotWindowEventsKey,
+			hotWindowEventDataKey,
+		},
+		cutoff,
+		limit,
+	).Int64()
+
+	if err != nil {
+		return 0, fmt.Errorf("清理过期窗口事件失败: %w", err)
+	}
+
+	return cleaned, nil
+}
+
+// 按窗口热度从高到低，读取分数大于 0 的视频 ID
+func (r *HotVideoRepository) TopWindowVideoIDs(
+	ctx context.Context,
+	limit int,
+) ([]uint, error) {
+	videoIDs := make([]uint, 0)
+
+	if limit <= 0 {
+		return videoIDs, nil
+	}
+
+	//按分数从高到低，读取指定分数范围内的成员
+	videoIDTexts, err := r.redisClient.ZRevRangeByScore(
+		ctx,
+		hotWindowVideosKey,
+		&redis.ZRangeBy{
+			Max:    "+inf",
+			Min:    "(0",
+			Offset: 0,
+			Count:  int64(limit),
+		},
+	).Result()
+	if err != nil {
+		return nil, fmt.Errorf("读取窗口热门视频 ID 失败: %w", err)
+	}
+
+	for _, videoIDText := range videoIDTexts {
+		id, err := strconv.ParseUint(videoIDText, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("解析窗口热门视频 ID 失败: %w", err)
+		}
+
+		videoIDs = append(videoIDs, uint(id))
+	}
+
+	return videoIDs, nil
+}

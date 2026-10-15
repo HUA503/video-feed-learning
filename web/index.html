@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="映流：发现视频，关注创作者，分享你的视角。">
+  <title>映流 · 发现你的下一份喜欢</title>
+  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/app.css">
+  <script src="/assets/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">跳到视频内容</a>
+  <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="i-discover" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m16 8-2.5 5.5L8 16l2.5-5.5L16 8Z"/></symbol>
+    <symbol id="i-fire" viewBox="0 0 24 24"><path d="M13 3c1 5-3 5-2 9 2-1 3-3 3-5 4 3 6 6 5 9a7.2 7.2 0 0 1-14-2c0-4 4-6 3-9 2 1 3 2 3 4 1-2 2-4 2-6Z"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2m2-16a3 3 0 0 1 0 6m1 4a5 5 0 0 1 3 4v2"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m9 5 11 7-11 7V5Z"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.5 5.5a5 5 0 0 0-7 0L12 7l-1.5-1.5a5 5 0 0 0-7 7L12 21l8.5-8.5a5 5 0 0 0 0-7Z"/></symbol>
+    <symbol id="i-comment" viewBox="0 0 24 24"><path d="M21 11.5a9 9 0 0 1-9 9 10 10 0 0 1-4-.9L3 21l1.4-5a9 9 0 1 1 16.6-4.5Z"/><path d="M8 11h8"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 16V3m-5 5 5-5 5 5M5 12H3v9h18v-9h-2"/></symbol>
+    <symbol id="i-out" viewBox="0 0 24 24"><path d="M9 5H4v14h5m5-14 7 7-7 7M8 12h13"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="m12 3 10 18H2L12 3Zm0 6v5m0 3v.1"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="m10 13 4-4m-7 5-2 2a4 4 0 0 0 6 6l4-4a4 4 0 0 0 0-6m2-2 2-2a4 4 0 0 0-6-6L9 6a4 4 0 0 0 0 6"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-film" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16m10-16v16M3 9h4m-4 6h4m10-6h4m-4 6h4"/></symbol>
+  </svg>
+
+  <aside class="sidebar">
+    <a class="brand" href="/" aria-label="映流首页"><img src="/assets/logo.svg" width="38" height="38" alt=""><span>映流<span class="brand-note">每个视角，都有回响</span></span></a>
+    <nav class="side-nav" aria-label="视频分类">
+      <button type="button" data-feed="latest" class="nav-item active" aria-current="page"><svg class="icon"><use href="#i-discover"/></svg>发现视频<span class="nav-dot"></span></button>
+      <button type="button" data-feed="hot" class="nav-item"><svg class="icon"><use href="#i-fire"/></svg>热门精选</button>
+      <button type="button" data-feed="following" class="nav-item"><svg class="icon"><use href="#i-users"/></svg>我的关注</button>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="sidebar-note"><svg class="icon"><use href="#i-film"/></svg><p>你的视角<br>值得被看见。</p><button class="sidebar-publish" type="button" data-action="publish">分享一个视频<svg class="icon"><use href="#i-plus"/></svg></button></div>
+      <p class="sidebar-foot">发现 · 关注 · 分享</p>
+    </div>
+  </aside>
+
+  <div class="workspace">
+    <header class="topbar">
+      <a href="/" class="mobile-brand"><img src="/assets/logo.svg" width="30" height="30" alt="">映流</a>
+      <form id="search-form" class="search-box" role="search">
+        <svg class="icon"><use href="#i-search"/></svg>
+        <input id="search-input" type="search" placeholder="搜索已加载的视频" aria-label="搜索已加载的视频标题或描述" autocomplete="off" maxlength="100">
+      </form>
+      <div class="topbar-actions">
+        <button class="button button-primary publish-top" type="button" data-action="publish" aria-label="发布视频"><svg class="icon"><use href="#i-plus"/></svg><span>发布视频</span></button>
+        <div id="account" class="account"></div>
+      </div>
+    </header>
+
+    <main id="main-content" class="canvas" tabindex="-1">
+      <section class="intro" aria-labelledby="feed-title">
+        <div><h1 id="feed-title">发现新鲜视角<span class="title-dot">。</span></h1><p id="feed-description">从最新发布开始，找到让你停留的片刻。</p></div>
+        <button id="refresh-feed" class="button button-quiet" type="button" data-action="refresh"><svg class="icon"><use href="#i-refresh"/></svg><span>刷新内容</span></button>
+      </section>
+      <div id="feed-banner" class="notice" role="status" hidden></div>
+      <div class="discovery-layout">
+        <section class="feed-main" aria-label="视频列表">
+          <div id="spotlight"></div>
+          <div id="grid-heading" class="section-heading"><h2 id="grid-title">更多作品</h2><span id="result-count" class="muted"></span></div>
+          <div id="video-grid" class="video-grid" aria-busy="true"></div>
+          <div id="feed-empty" class="empty-state" hidden></div>
+          <div class="load-more-wrap"><button id="load-more" class="button button-outline" type="button" data-action="load-more" hidden>加载更多</button><p id="end-note" class="end-note" hidden>已经看到这里了，新的故事还在发生。</p></div>
+        </section>
+        <aside class="right-rail" aria-label="热门内容与创作">
+          <section class="ranking-panel">
+            <div class="section-heading"><h2 id="ranking-title"><svg class="icon"><use href="#i-fire"/></svg>24 小时热榜</h2><span class="live-dot" aria-label="近期热度"></span></div>
+            <p id="ranking-description" class="rail-description">正在被喜欢的内容</p>
+            <ol id="ranking-list" class="ranking-list"></ol>
+            <button class="text-button ranking-refresh" type="button" data-action="refresh-ranking">更新榜单<svg class="icon"><use href="#i-refresh"/></svg></button>
+          </section>
+          <section class="creator-panel"><div class="creator-art" aria-hidden="true"><div class="mini-frame frame-back"></div><div class="mini-frame frame-front"><svg class="icon"><use href="#i-play"/></svg></div><span class="art-spark">✦</span></div><h2>让灵感，有个去处</h2><p>准备一条可播放的视频链接，<br>把你的故事分享给大家。</p><button class="button button-soft" type="button" data-action="publish">发布我的作品<svg class="icon"><use href="#i-arrow"/></svg></button></section>
+          <p class="rail-foot">每一次分享，都让这里多一个视角。</p>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <nav class="mobile-nav" aria-label="移动端视频分类">
+    <button type="button" data-feed="latest" class="active" aria-current="page"><svg class="icon"><use href="#i-discover"/></svg>发现</button>
+    <button type="button" data-feed="hot"><svg class="icon"><use href="#i-fire"/></svg>热门</button>
+    <button type="button" data-feed="following"><svg class="icon"><use href="#i-users"/></svg>关注</button>
+  </nav>
+
+  <dialog id="auth-dialog" class="form-dialog" aria-labelledby="auth-title">
+    <div class="dialog-content"><button class="icon-button dialog-close" type="button" data-close="auth-dialog" aria-label="关闭登录窗口"><svg class="icon"><use href="#i-close"/></svg></button>
+      <img class="dialog-logo" src="/assets/logo.svg" width="44" height="44" alt="">
+      <h2 id="auth-title">欢迎来到映流</h2><p class="dialog-subtitle">登录后，收藏此刻的喜欢。</p>
+      <div class="auth-tabs" role="group" aria-label="登录或注册"><button id="login-tab" class="selected" type="button" data-auth-mode="login" aria-pressed="true">登录</button><button id="register-tab" type="button" data-auth-mode="register" aria-pressed="false">注册</button></div>
+      <form id="auth-form">
+        <label for="auth-username">用户名</label><input id="auth-username" name="username" autocomplete="username" required minlength="3" maxlength="50" placeholder="3–50 个字符">
+        <label for="auth-password">密码</label><input id="auth-password" name="password" type="password" autocomplete="current-password" required minlength="8" maxlength="72" placeholder="至少 8 个字符">
+        <div id="confirm-password-field" hidden><label for="auth-confirm">确认密码</label><input id="auth-confirm" name="confirm" type="password" autocomplete="new-password" maxlength="72" placeholder="再次输入密码"></div>
+        <p id="auth-error" class="form-error" role="alert" hidden></p>
+        <button id="auth-submit" class="button button-primary full-width" type="submit">登录</button>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog id="publish-dialog" class="form-dialog publish-dialog" aria-labelledby="publish-title">
+    <div class="dialog-content"><button class="icon-button dialog-close" type="button" data-close="publish-dialog" aria-label="关闭发布窗口"><svg class="icon"><use href="#i-close"/></svg></button>
+      <div class="dialog-symbol"><svg class="icon"><use href="#i-film"/></svg></div><h2 id="publish-title">分享你的视角</h2><p class="dialog-subtitle">通过视频链接发布，让好内容被看见。</p>
+      <form id="publish-form">
+        <label for="publish-name">视频标题 <span>必填</span></label><input id="publish-name" name="title" required maxlength="200" placeholder="给这段故事起个名字">
+        <label for="publish-url">视频地址 <span>必填</span></label><input id="publish-url" name="video_url" type="url" required maxlength="500" placeholder="https://…/video.mp4"><p class="field-hint">填写可直接播放的 MP4 或 WebM 地址。</p>
+        <label for="publish-cover">封面地址 <span>选填</span></label><input id="publish-cover" name="cover_url" type="url" maxlength="500" placeholder="https://…/cover.jpg">
+        <label for="publish-description">视频简介 <span>选填</span></label><textarea id="publish-description" name="description" rows="3" maxlength="5000" placeholder="聊聊视频背后的故事"></textarea>
+        <p id="publish-error" class="form-error" role="alert" hidden></p><button id="publish-submit" class="button button-primary full-width" type="submit">发布视频</button>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog id="watch-dialog" class="watch-dialog" aria-labelledby="watch-title">
+    <div class="watch-shell">
+      <div class="watch-main"><header class="watch-header"><span class="watch-brand">映流放映室</span><button class="icon-button" type="button" data-close="watch-dialog" aria-label="关闭视频"><svg class="icon"><use href="#i-close"/></svg></button></header>
+        <div class="player-stage"><video id="watch-video" controls playsinline preload="metadata"></video><div id="playback-message" class="playback-message" hidden><svg class="icon"><use href="#i-film"/></svg><h3>这个视频暂时无法播放</h3><p>请检查视频链接是否可访问，以及浏览器是否支持该格式。你仍然可以查看评论、点赞和关注创作者。</p><a id="original-video" class="button button-outline" target="_blank" rel="noopener noreferrer">打开视频地址<svg class="icon"><use href="#i-link"/></svg></a></div></div>
+        <div class="watch-details"><h2 id="watch-title"></h2><div class="watch-author-row"><span id="watch-avatar" class="avatar"></span><div class="watch-author-copy"><strong id="watch-author"></strong><time id="watch-date"></time></div><button id="follow-button" class="button button-soft" type="button" data-action="follow">关注</button></div><p id="watch-description" class="watch-description"></p>
+          <div class="watch-actions"><button id="like-button" class="button button-outline" type="button" data-action="like" aria-pressed="false"><svg class="icon"><use href="#i-heart"/></svg><span>点赞</span></button><button class="button button-quiet" type="button" data-action="share"><svg class="icon"><use href="#i-share"/></svg>分享</button><span id="interaction-hint" class="muted"></span></div>
+        </div>
+      </div>
+      <section class="comments-panel" aria-labelledby="comments-heading"><div class="comments-header"><h3 id="comments-heading">评论 <span id="comment-count"></span></h3></div><div id="comments-list" class="comments-list" aria-busy="false"></div>
+        <form id="comment-form" class="comment-form"><label class="sr-only" for="comment-content">评论内容</label><textarea id="comment-content" name="content" rows="3" maxlength="2000" placeholder="聊聊你的想法…" required></textarea><div class="comment-form-bottom"><button id="comment-login" class="text-button" type="button" data-action="login" hidden>登录后参与讨论</button><span id="comment-limit" class="muted">0 / 2000</span><button id="comment-submit" class="button button-primary" type="submit">发送</button></div><p id="comment-error" class="form-error" role="alert" hidden></p></form>
+      </section>
+    </div>
+  </dialog>
+  <div id="toasts" class="toast-stack" aria-live="polite" aria-atomic="false"></div>
+  <noscript><div class="noscript-note">请启用浏览器 JavaScript，以加载视频并使用登录、评论等功能。</div></noscript>
+</body>
+</html>

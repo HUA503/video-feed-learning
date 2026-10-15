@@ -413,6 +413,11 @@ func main() {
 
 	log.Println("Outbox 后台发送任务已启动")
 
+	// 创建仓库对象
+	tokenRevocationRepo := repository.NewTokenRevocationRepository(redisClient)
+	logoutService := service.NewLogoutService(tokenRevocationRepo)
+	logoutHandler := handler.NewLogoutHandler(logoutService)
+
 	engine := router.New(
 		userHandler,
 		videoHandler,
@@ -422,6 +427,8 @@ func main() {
 		followHandler,
 		feedHandler,
 		hotFeedHandler,
+		tokenRevocationRepo,
+		logoutHandler,
 	)
 
 	// 创建 HTTP 服务，使用 Gin 处理请求

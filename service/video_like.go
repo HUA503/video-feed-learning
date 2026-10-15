@@ -26,6 +26,17 @@ func NewVideoLikeService(
 	}
 }
 
+// State 查询当前用户是否已经点赞，供页面恢复按钮状态。
+func (s *VideoLikeService) State(userID, videoID uint) (bool, error) {
+	if _, err := s.videoRepo.FindByID(videoID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, ErrVideoNotFound
+		}
+		return false, err
+	}
+	return s.likeRepo.Exists(userID, videoID)
+}
+
 // 确认视频存在，再创建点赞记录
 func (s *VideoLikeService) Like(userID, videoID uint) error {
 	// 1. 确认视频存在

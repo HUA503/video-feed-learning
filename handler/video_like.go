@@ -19,6 +19,32 @@ func NewVideoLikeHandler(likeService *service.VideoLikeService) *VideoLikeHandle
 	return &VideoLikeHandler{likeService: likeService}
 }
 
+// State 返回当前登录用户的点赞状态。
+func (h *VideoLikeHandler) State(c *gin.Context) {
+	videoID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || videoID == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "视频 ID 格式不正确"})
+		return
+	}
+	value, exists := c.Get(middleware.UserIDKey)
+	userID, ok := value.(uint)
+	if !exists || !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "未获取到登录用户"})
+		return
+	}
+	liked, err := h.likeService.State(userID, uint(videoID))
+	if errors.Is(err, service.ErrVideoNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "视频不存在"})
+		return
+	}
+	if err != nil {
+		log.Printf("查询点赞状态失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询点赞状态失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"liked": liked})
+}
+
 // 取 URL 里的视频 ID，从鉴权中间件中取得当前用户 ID
 func (h *VideoLikeHandler) Like(c *gin.Context) {
 	videoIDValue, err := strconv.ParseUint(c.Param("id"), 10, 64)

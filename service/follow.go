@@ -31,6 +31,17 @@ func NewFollowService(
 	}
 }
 
+// State 查询当前用户与目标用户之间的关注关系。
+func (s *FollowService) State(followerID, followeeID uint) (bool, error) {
+	if _, err := s.userRepo.FindByID(followeeID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, ErrFolloweeNotFound
+		}
+		return false, err
+	}
+	return s.followRepo.Exists(followerID, followeeID)
+}
+
 func (s *FollowService) Follow(followerID, followeeID uint) error {
 	//不能自己关注自己
 	if followerID == followeeID {

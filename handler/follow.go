@@ -19,6 +19,32 @@ func NewFollowHandler(followService *service.FollowService) *FollowHandler {
 	return &FollowHandler{followService: followService}
 }
 
+// State 返回当前登录用户的关注状态。
+func (h *FollowHandler) State(c *gin.Context) {
+	followeeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || followeeID == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "用户 ID 格式不正确"})
+		return
+	}
+	value, exists := c.Get(middleware.UserIDKey)
+	followerID, ok := value.(uint)
+	if !exists || !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "未获取到登录用户"})
+		return
+	}
+	following, err := h.followService.State(followerID, uint(followeeID))
+	if errors.Is(err, service.ErrFolloweeNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "用户不存在"})
+		return
+	}
+	if err != nil {
+		log.Printf("查询关注状态失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询关注状态失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"following": following})
+}
+
 func (h *FollowHandler) Follow(c *gin.Context) {
 	followeeIDValue, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil || followeeIDValue == 0 {

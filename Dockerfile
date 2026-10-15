@@ -21,6 +21,7 @@ ENV TZ=Asia/Shanghai
 WORKDIR /app
 
 COPY --from=builder /out/video-feed /app/video-feed
+COPY --from=builder /src/web /app/web
 
 USER 10001:10001
 

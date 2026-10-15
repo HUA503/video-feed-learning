@@ -35,16 +35,20 @@ Authorization: Bearer <登录接口返回的 token>
 | 查询视频列表 | GET | `/api/v1/videos` | 否 |
 | 查询视频详情 | GET | `/api/v1/videos/:id` | 否 |
 | 点赞视频 | POST | `/api/v1/videos/:id/like` | 是 |
+| 查询当前用户点赞状态 | GET | `/api/v1/videos/:id/like` | 是 |
 | 取消点赞 | DELETE | `/api/v1/videos/:id/like` | 是 |
 | 发布评论 | POST | `/api/v1/videos/:id/comments` | 是 |
 | 查询视频评论 | GET | `/api/v1/videos/:id/comments` | 否 |
 | 删除自己的评论 | DELETE | `/api/v1/comments/:id` | 是 |
 | 关注用户 | POST | `/api/v1/users/:id/follow` | 是 |
+| 查询当前用户关注状态 | GET | `/api/v1/users/:id/follow` | 是 |
 | 取消关注 | DELETE | `/api/v1/users/:id/follow` | 是 |
 | 查询关注 Feed | GET | `/api/v1/feed/following` | 是 |
 | 查询热门视频 | GET | `/api/v1/feed/hot` | 否 |
 
 ## 路径中的 ID
+
+页面打开视频时，通过 `GET /api/v1/videos/:id/like` 读取 `{"liked": true/false}`，通过 `GET /api/v1/users/:id/follow` 读取 `{"following": true/false}`。两者均需要登录，且只查询当前用户的关系状态。
 
 `:id` 表示路径参数，调用时替换为实际数字。
 

@@ -1,0 +1,19 @@
+# Git 和编辑器配置
+.git
+.idea
+.vscode
+
+# 本地环境配置
+.env
+.env.*
+
+# 数据备份
+backups
+
+# 编译结果和日志
+bin
+dist
+**/*.exe
+**/*.test
+**/*.out
+**/*.log

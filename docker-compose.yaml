@@ -1,4 +1,24 @@
 services:
+  api:     #给 Go 服务起的 Compose 服务名
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: video-feed:local
+    container_name: video-feed-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    stop_grace_period: 40s
+
   mysql:
     image: mysql:8.4
     container_name: video-feed-mysql
@@ -12,6 +32,13 @@ services:
       - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
+    healthcheck:    #检查 MySQL 服务是否已经能响应
+      test: [ "CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+
   redis:
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
@@ -21,6 +48,13 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
   rabbitmq:
     image: rabbitmq:4-management
     container_name: video-feed-rabbitmq
@@ -31,6 +65,13 @@ services:
       - "127.0.0.1:18072:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "check_port_listener", "5672" ]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
 volumes:
   mysql_data:
   rabbitmq_data:

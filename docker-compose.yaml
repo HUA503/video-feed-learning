@@ -14,10 +14,13 @@ services:
       - mysql_data:/var/lib/mysql
   redis:
     image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
     container_name: video-feed-redis
     restart: unless-stopped
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
   rabbitmq:
     image: rabbitmq:4-management
     container_name: video-feed-rabbitmq
@@ -31,3 +34,4 @@ services:
 volumes:
   mysql_data:
   rabbitmq_data:
+  redis_data:
